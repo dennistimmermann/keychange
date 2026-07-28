@@ -31,7 +31,7 @@ final class AppState: ObservableObject {
     @Published var inputSources: [InputSource] = []
     @Published var hasPermission: Bool = false
     @Published var menuBarCode: String = "—"
-    /// The current input source's own icon (same asset the system Input menu uses); nil → show menuBarCode text.
+    /// The Keychange mark with the current source's code; nil → show menuBarCode text.
     @Published var menuBarIcon: NSImage? = nil
 
     /// deviceID -> inputSourceID. A missing key means "Default": never switch for that device.
@@ -223,51 +223,72 @@ final class AppState: ObservableObject {
         language?.uppercased() ?? "—"
     }
 
-    /// One square size for enabled and disabled so toggling doesn't shift the menu bar.
-    private static let badgeSide: CGFloat = 19
+    /// The Keychange mark at menu bar size, evolved from design-handoff/logo: front
+    /// plate solid with the current code knocked out to a real hole (so template
+    /// rendering survives), back plate the source switched *from* — texture only.
+    private static func mark(frontGlyph: @escaping (NSRect) -> Void, alpha: CGFloat = 1,
+                             outlinedBack: Bool = false) -> NSImage {
+        // Two equal 4:3 plates (the system Input menu badge ratio), 80% overlap on
+        // both axes. Construction spans x 1.5-12.54, y 1.4-10.08 (8.68pt tall),
+        // scaled to an 18pt-tall canvas.
+        let k: CGFloat = 18 / 8.68
+        let image = NSImage(size: NSSize(width: (11.04 * k).rounded(), height: 18), flipped: false) { _ in
+            let ctx = NSGraphicsContext.current!.cgContext
+            ctx.translateBy(x: -1.5 * k, y: -1.4 * k)
+            ctx.scaleBy(x: k, y: k)
 
-    /// Disabled look: keyboard symbol instead of a locale badge (we're not switching),
-    /// dimmed the way the system dims status items (template image at reduced alpha).
-    private static func disabledIcon() -> NSImage {
-        let symbol = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Keychange disabled")!
-            .withSymbolConfiguration(.init(pointSize: 11, weight: .medium))!
-        let image = NSImage(size: NSSize(width: badgeSide, height: badgeSide), flipped: false) { rect in
-            NSColor.black.withAlphaComponent(0.4).setFill()
-            NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
-            let symbolRect = NSRect(x: (rect.width - symbol.size.width) / 2,
-                                    y: (rect.height - symbol.size.height) / 2,
-                                    width: symbol.size.width, height: symbol.size.height)
-            symbol.draw(in: symbolRect, from: .zero, operation: .destinationOut, fraction: 1)
+            // Back plate: 40% fill normally; outline = the disabled state.
+            let backRect = NSRect(x: 3.34, y: 2.78, width: 9.2, height: 6.9)
+            NSColor.black.withAlphaComponent(0.4).set()
+            if outlinedBack {
+                // Inset so the stroke stays inside the plate's footprint (and the canvas).
+                let back = NSBezierPath(roundedRect: backRect.insetBy(dx: 0.65, dy: 0.65),
+                                        xRadius: 2, yRadius: 2)
+                back.lineWidth = 1.3
+                back.stroke()
+            } else {
+                NSBezierPath(roundedRect: backRect, xRadius: 2, yRadius: 2).fill()
+            }
+
+            let frontRect = NSRect(x: 1.5, y: 1.4, width: 9.2, height: 6.9)
+            NSColor.black.withAlphaComponent(alpha).setFill()
+            NSBezierPath(roundedRect: frontRect, xRadius: 2, yRadius: 2).fill()
+            NSGraphicsContext.current?.cgContext.setBlendMode(.destinationOut)
+            frontGlyph(frontRect)
             return true
         }
         image.isTemplate = true
         return image
     }
 
-    /// The system's real per-layout icons are not reachable via public API (keylayouts only
-    /// expose a generic legacy IconRef, input methods point at nonexistent files), so draw
-    /// our own badge: language code in an outlined rounded rect, as a template image so it
-    /// adapts to menu bar light/dark like the system's own item.
     private static func badge(_ text: String) -> NSImage {
-        let font = NSFont.systemFont(ofSize: 11, weight: .bold)
-        let attributed = NSAttributedString(string: text, attributes: [.font: font])
-        let textSize = attributed.size()
-        // Square, sized up just enough if the code is wider than the default side
-        // (ponytail: 3-letter codes still grow and will differ from the disabled icon).
-        let side = max(Self.badgeSide, textSize.width.rounded(.up) + 4)
-        let size = NSSize(width: side, height: side)
-        let image = NSImage(size: size, flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
-            NSGraphicsContext.current?.cgContext.setBlendMode(.destinationOut)
-            // Optically center on the cap height; size() includes line spacing that sits too high.
-            let baseline = (rect.height - font.capHeight) / 2
-            attributed.draw(at: NSPoint(x: (rect.width - textSize.width) / 2,
-                                        y: baseline + font.descender))
-            return true
-        }
-        image.isTemplate = true
-        return image
+        // Handoff: 1-2 characters only; 3+ falls back to the first.
+        let code = text.count > 2 ? String(text.prefix(1)) : text
+        let font = NSFont.systemFont(ofSize: 4.8, weight: .bold)
+        let attributed = NSAttributedString(string: code, attributes: [.font: font, .kern: -0.1])
+        return mark(frontGlyph: { front in
+            // Center the actual ink: font-metric math (cap height/descender) drifts
+            // visibly at this size, so measure what the glyphs really cover.
+            let ctx = NSGraphicsContext.current!.cgContext
+            let line = CTLineCreateWithAttributedString(attributed)
+            ctx.textPosition = .zero
+            let ink = CTLineGetImageBounds(line, ctx)
+            ctx.textPosition = CGPoint(x: front.midX - ink.midX, y: front.midY - ink.midY)
+            CTLineDraw(line, ctx)
+        })
+    }
+
+    /// Disabled look: keyboard symbol in place of the code (we're not switching),
+    /// whole mark dimmed the way the system dims status items.
+    private static func disabledIcon() -> NSImage {
+        let symbol = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Keychange disabled")!
+            .withSymbolConfiguration(.init(pointSize: 6, weight: .bold))!
+        return mark(frontGlyph: { front in
+            let rect = NSRect(x: front.midX - symbol.size.width / 2,
+                              y: front.midY - symbol.size.height / 2,
+                              width: symbol.size.width, height: symbol.size.height)
+            symbol.draw(in: rect, from: .zero, operation: .destinationOut, fraction: 1)
+        }, alpha: 0.4, outlinedBack: true)
     }
 
     /// Also catches input source changes the user makes by hand (or via the system UI).
