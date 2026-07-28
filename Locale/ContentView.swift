@@ -104,7 +104,8 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Picker("Input source", selection: mappingBinding(for: device)) {
-                Text("Default").tag(String?.none)
+                Text("Don't switch").tag(String?.none)
+                Divider()
                 ForEach(state.inputSources) { source in
                     Text(source.name).tag(Optional(source.id))
                 }

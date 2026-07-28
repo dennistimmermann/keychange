@@ -41,7 +41,10 @@ final class AppState: ObservableObject {
 
     // Persisted settings. @Published + didSet, not @AppStorage (which misbehaves inside ObservableObject).
     @Published var isEnabled: Bool {
-        didSet { defaults.set(isEnabled, forKey: Key.isEnabled) }
+        didSet {
+            defaults.set(isEnabled, forKey: Key.isEnabled)
+            refreshMenuBarCode()
+        }
     }
     @Published var showDeviceDetails: Bool {
         didSet { defaults.set(showDeviceDetails, forKey: Key.showDeviceDetails) }
@@ -207,6 +210,10 @@ final class AppState: ObservableObject {
     }
 
     private func refreshMenuBarCode() {
+        guard isEnabled else {
+            menuBarIcon = Self.disabledIcon()
+            return
+        }
         guard let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
             menuBarCode = "—"
             menuBarIcon = nil
@@ -221,6 +228,27 @@ final class AppState: ObservableObject {
         language?.uppercased() ?? "—"
     }
 
+    /// One square size for enabled and disabled so toggling doesn't shift the menu bar.
+    private static let badgeSide: CGFloat = 19
+
+    /// Disabled look: keyboard symbol instead of a locale badge (we're not switching),
+    /// dimmed the way the system dims status items (template image at reduced alpha).
+    private static func disabledIcon() -> NSImage {
+        let symbol = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Locale disabled")!
+            .withSymbolConfiguration(.init(pointSize: 11, weight: .medium))!
+        let image = NSImage(size: NSSize(width: badgeSide, height: badgeSide), flipped: false) { rect in
+            NSColor.black.withAlphaComponent(0.4).setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
+            let symbolRect = NSRect(x: (rect.width - symbol.size.width) / 2,
+                                    y: (rect.height - symbol.size.height) / 2,
+                                    width: symbol.size.width, height: symbol.size.height)
+            symbol.draw(in: symbolRect, from: .zero, operation: .destinationOut, fraction: 1)
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+
     /// The system's real per-layout icons are not reachable via public API (keylayouts only
     /// expose a generic legacy IconRef, input methods point at nonexistent files), so draw
     /// our own badge: language code in an outlined rounded rect, as a template image so it
@@ -229,8 +257,9 @@ final class AppState: ObservableObject {
         let font = NSFont.systemFont(ofSize: 11, weight: .bold)
         let attributed = NSAttributedString(string: text, attributes: [.font: font])
         let textSize = attributed.size()
-        // Square, sized up just enough if the code is wider than the default side.
-        let side = max(18, textSize.width.rounded(.up) + 4)
+        // Square, sized up just enough if the code is wider than the default side
+        // (ponytail: 3-letter codes still grow and will differ from the disabled icon).
+        let side = max(Self.badgeSide, textSize.width.rounded(.up) + 4)
         let size = NSSize(width: side, height: side)
         let image = NSImage(size: size, flipped: false) { rect in
             NSColor.black.setFill()
