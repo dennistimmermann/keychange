@@ -120,10 +120,16 @@ struct ContentView: View {
         .padding(.trailing, 9)
     }
 
-    /// Reads the stored mapping, writes through `AppState`. `nil` means "Default".
+    /// Reads the stored mapping, writes through `AppState`. `nil` means "Don't switch".
+    /// A mapping whose source is no longer enabled shows as "Don't switch" (instead of an
+    /// invalid picker selection) but stays stored, so it revives when the source returns.
     private func mappingBinding(for device: Keyboard) -> Binding<String?> {
         Binding(
-            get: { state.mapping[device.id] },
+            get: {
+                guard let id = state.mapping[device.id],
+                      state.inputSources.contains(where: { $0.id == id }) else { return nil }
+                return id
+            },
             set: { state.setMapping(deviceID: device.id, sourceID: $0) }
         )
     }

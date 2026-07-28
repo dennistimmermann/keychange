@@ -1,0 +1,37 @@
+name: Release
+
+# Tag a commit `v1.2.3` and push the tag -> builds Locale 1.2.3 and attaches
+# the zipped app to a GitHub release of that tag.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (version from tag)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          xcodebuild -project Locale.xcodeproj -scheme Locale -configuration Release \
+            -derivedDataPath build \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+        # ponytail: unsigned build (Gatekeeper will warn); once the signing
+        # certificate is in the repo secrets, add a keychain-import step and
+        # drop CODE_SIGNING_ALLOWED=NO, plus notarytool for distribution.
+
+      - name: Zip app
+        run: ditto -c -k --keepParent build/Build/Products/Release/Locale.app Locale.zip
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" Locale.zip --generate-notes
