@@ -64,6 +64,8 @@ final class AppState: ObservableObject {
     /// autokbisw's `lastActiveKeyboard` debounce: only act when the typing device actually changes.
     private var lastActiveID: String?
     private var iconAnimation: Task<Void, Never>?
+    /// Whether the status item currently shows the disabled mark (drives the toggle animation).
+    private var iconShowsDisabled = false
 
     init() {
         mapping = defaults.dictionary(forKey: Key.mapping) as? [String: String] ?? [:]
@@ -207,34 +209,49 @@ final class AppState: ObservableObject {
 
     private func refreshMenuBarCode() {
         iconAnimation?.cancel()
+        let hadIcon = menuBarIcon != nil
+
         guard isEnabled else {
-            menuBarIcon = Self.disabledIcon()
+            if hadIcon, !iconShowsDisabled {
+                let code = menuBarCode
+                animateIcon { Self.enableFrame(t: $0, code: code) }
+            } else {
+                menuBarIcon = Self.disabledIcon()
+            }
+            iconShowsDisabled = true
             return
         }
+
         guard let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
             menuBarCode = "—"
             menuBarIcon = nil
+            iconShowsDisabled = false
             return
         }
         let languages = Self.property(current, kTISPropertyInputSourceLanguages) as? [String] ?? []
         let oldCode = menuBarCode
         menuBarCode = Self.badgeText(for: languages.first)
-        if oldCode != menuBarCode, oldCode != "—", menuBarIcon != nil {
-            animateSwap(from: oldCode, to: menuBarCode)
+
+        if iconShowsDisabled, hadIcon {
+            let code = menuBarCode
+            animateIcon { Self.enableFrame(t: 1 - $0, code: code) }
+        } else if hadIcon, oldCode != menuBarCode, oldCode != "—" {
+            let newCode = menuBarCode
+            animateIcon { Self.swapFrame(t: $0, from: oldCode, to: newCode) }
         } else {
             menuBarIcon = Self.badge(menuBarCode)
         }
+        iconShowsDisabled = false
     }
 
-    /// Flip-book the plate swap into the status item (~0.3s, ~50fps).
-    private func animateSwap(from oldCode: String, to newCode: String) {
+    /// Flip-book a mark transition into the status item (~0.3s, ~50fps, smoothstep).
+    private func animateIcon(frame: @escaping (CGFloat) -> NSImage) {
         iconAnimation = Task { [weak self] in
             let frames = 16
             for i in 1...frames {
                 if Task.isCancelled { return }
                 let t = CGFloat(i) / CGFloat(frames)
-                let eased = t * t * (3 - 2 * t) // smoothstep
-                self?.menuBarIcon = Self.swapFrame(t: eased, from: oldCode, to: newCode)
+                self?.menuBarIcon = frame(t * t * (3 - 2 * t))
                 try? await Task.sleep(nanoseconds: 300_000_000 / UInt64(frames))
             }
         }
@@ -270,9 +287,27 @@ final class AppState: ObservableObject {
         return image
     }
 
-    nonisolated private static func fillPlate(_ rect: NSRect, alpha: CGFloat) {
+    /// Draws one plate: punches a slightly expanded footprint out of everything
+    /// below (so a translucent plate reads as an opaque card with a 0.4pt rim gap
+    /// instead of blending — without it, same-brightness plates merge into one
+    /// blob), fills at `alpha`, then knocks `glyphFraction` of the code out.
+    nonisolated private static func drawPlate(_ rect: NSRect, alpha: CGFloat, code: String = "",
+                                              glyphFraction: CGFloat = 0, _ ctx: CGContext) {
+        ctx.saveGState()
+        ctx.setBlendMode(.destinationOut)
+        NSColor.black.setFill()
+        NSBezierPath(roundedRect: rect.insetBy(dx: -0.4, dy: -0.4), xRadius: 2.4, yRadius: 2.4).fill()
+        ctx.restoreGState()
+
         NSColor.black.withAlphaComponent(alpha).setFill()
         NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2).fill()
+
+        if !code.isEmpty { knockOut(glyph(code), in: rect, fraction: glyphFraction, ctx) }
+    }
+
+    nonisolated private static func lerp(_ a: NSRect, _ b: NSRect, _ t: CGFloat) -> NSRect {
+        NSRect(x: a.minX + (b.minX - a.minX) * t, y: a.minY + (b.minY - a.minY) * t,
+               width: a.width, height: a.height)
     }
 
     nonisolated private static func glyph(_ text: String) -> NSAttributedString {
@@ -307,47 +342,31 @@ final class AppState: ObservableObject {
     /// Old plate glyph fades out by the midpoint; the new one fades in after it.
     nonisolated private static func swapFrame(t: CGFloat, from oldCode: String, to newCode: String) -> NSImage {
         markImage { ctx in
-            func lerp(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a + (b - a) * t }
-            func lerp(_ a: NSRect, _ b: NSRect) -> NSRect {
-                NSRect(x: lerp(a.minX, b.minX), y: lerp(a.minY, b.minY),
-                       width: a.width, height: a.height)
-            }
-            func draw(rect: NSRect, alpha: CGFloat, code: String, glyphAlpha: CGFloat) {
-                fillPlate(rect, alpha: alpha)
-                if !code.isEmpty { knockOut(glyph(code), in: rect, fraction: glyphAlpha, ctx) }
-            }
-            let old = { draw(rect: lerp(frontPlate, backPlate), alpha: lerp(1, 0.4),
-                             code: oldCode, glyphAlpha: max(0, 1 - 2 * t)) }
-            let new = { draw(rect: lerp(backPlate, frontPlate), alpha: lerp(0.4, 1),
-                             code: newCode, glyphAlpha: max(0, 2 * t - 1)) }
+            let old = { drawPlate(lerp(frontPlate, backPlate, t), alpha: 1 - 0.6 * t,
+                                  code: oldCode, glyphFraction: max(0, 1 - 2 * t), ctx) }
+            let new = { drawPlate(lerp(backPlate, frontPlate, t), alpha: 0.4 + 0.6 * t,
+                                  code: newCode, glyphFraction: max(0, 2 * t - 1), ctx) }
             // The plate headed to the front paints on top from the midpoint on.
             if t < 0.5 { new(); old() } else { old(); new() }
         }
     }
 
-    nonisolated private static func badge(_ text: String) -> NSImage {
-        swapFrame(t: 1, from: "", to: text)
+    /// One frame of the enable/disable transition. t = 0: enabled badge (which is
+    /// also the static mark). t = 1: disabled — same geometry, front plate dimmed
+    /// to 40% with the code faded out. No motion, just opacity.
+    nonisolated private static func enableFrame(t: CGFloat, code: String) -> NSImage {
+        markImage { ctx in
+            drawPlate(backPlate, alpha: 0.4, ctx)
+            drawPlate(frontPlate, alpha: 1 - 0.6 * t, code: code, glyphFraction: 1 - t, ctx)
+        }
     }
 
-    /// Disabled look: outlined back plate, dimmed front with a keyboard symbol
-    /// in place of the code (we're not switching).
+    nonisolated private static func badge(_ text: String) -> NSImage {
+        enableFrame(t: 0, code: text)
+    }
+
     nonisolated private static func disabledIcon() -> NSImage {
-        let symbol = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Keychange disabled")!
-            .withSymbolConfiguration(.init(pointSize: 6, weight: .bold))!
-        return markImage { ctx in
-            // Inset so the stroke stays inside the plate's footprint (and the canvas).
-            let back = NSBezierPath(roundedRect: backPlate.insetBy(dx: 0.65, dy: 0.65),
-                                    xRadius: 2, yRadius: 2)
-            back.lineWidth = 1.3
-            NSColor.black.withAlphaComponent(0.4).setStroke()
-            back.stroke()
-            fillPlate(frontPlate, alpha: 0.4)
-            ctx.setBlendMode(.destinationOut)
-            let rect = NSRect(x: frontPlate.midX - symbol.size.width / 2,
-                              y: frontPlate.midY - symbol.size.height / 2,
-                              width: symbol.size.width, height: symbol.size.height)
-            symbol.draw(in: rect, from: .zero, operation: .destinationOut, fraction: 1)
-        }
+        enableFrame(t: 1, code: "")
     }
 
     /// Also catches input source changes the user makes by hand (or via the system UI).
