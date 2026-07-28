@@ -9,9 +9,6 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var state: AppState
 
-    /// Transient (per the spec it is deliberately not persisted).
-    @State private var settingsExpanded = false
-
     /// Empty state doubles as the "no permission" state: in both cases there is
     /// nothing to list, and the call to action is the same.
     private var showsEmptyState: Bool {
@@ -31,14 +28,17 @@ struct ContentView: View {
                     .animation(.easeInOut(duration: 0.2), value: state.isEnabled)
             }
 
-            footer
+            Divider()
+                .padding(.vertical, 5)
+                .padding(.horizontal, 9)
 
-            if settingsExpanded {
-                settingsSection
-            }
+            settingsSection
         }
         .padding(6)
         .frame(width: 344)
+        // MenuBarExtra(.window) proposes the previous (larger) height after the
+        // settings foldout closes; without this the device list stretches to fill it.
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: - Header
@@ -90,7 +90,6 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.name)
                     .font(.system(size: 13))
-                    .fontWeight(isActive ? .semibold : .regular)
                     .foregroundStyle(Color(nsColor: .labelColor))
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -164,26 +163,6 @@ struct ContentView: View {
         .padding(.top, 26)
         .padding(.horizontal, 22)
         .padding(.bottom, 24)
-    }
-
-    // MARK: - Footer
-
-    private var footer: some View {
-        HStack(spacing: 0) {
-            Spacer()
-            Button {
-                settingsExpanded.toggle()
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Settings")
-        }
-        .padding(.top, 5)
-        .padding(.horizontal, 10)
-        .padding(.bottom, 2)
     }
 
     // MARK: - Settings

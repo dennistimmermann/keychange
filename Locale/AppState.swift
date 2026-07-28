@@ -31,6 +31,8 @@ final class AppState: ObservableObject {
     @Published var inputSources: [InputSource] = []
     @Published var hasPermission: Bool = false
     @Published var menuBarCode: String = "—"
+    /// The current input source's own icon (same asset the system Input menu uses); nil → show menuBarCode text.
+    @Published var menuBarIcon: NSImage? = nil
 
     /// deviceID -> inputSourceID. A missing key means "Default": never switch for that device.
     @Published var mapping: [String: String] = [:] {
@@ -205,15 +207,43 @@ final class AppState: ObservableObject {
     }
 
     private func refreshMenuBarCode() {
-        // ponytail: language code, not per-layout glyphs (あ) — swap to abbreviation lookup if wanted
-        guard let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
-              let languages = Self.property(current, kTISPropertyInputSourceLanguages) as? [String],
-              let code = languages.first
-        else {
+        guard let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
             menuBarCode = "—"
+            menuBarIcon = nil
             return
         }
-        menuBarCode = code.uppercased()
+        let languages = Self.property(current, kTISPropertyInputSourceLanguages) as? [String] ?? []
+        menuBarCode = Self.badgeText(for: languages.first)
+        menuBarIcon = Self.badge(menuBarCode)
+    }
+
+    private static func badgeText(for language: String?) -> String {
+        language?.uppercased() ?? "—"
+    }
+
+    /// The system's real per-layout icons are not reachable via public API (keylayouts only
+    /// expose a generic legacy IconRef, input methods point at nonexistent files), so draw
+    /// our own badge: language code in an outlined rounded rect, as a template image so it
+    /// adapts to menu bar light/dark like the system's own item.
+    private static func badge(_ text: String) -> NSImage {
+        let font = NSFont.systemFont(ofSize: 11, weight: .bold)
+        let attributed = NSAttributedString(string: text, attributes: [.font: font])
+        let textSize = attributed.size()
+        // Square, sized up just enough if the code is wider than the default side.
+        let side = max(18, textSize.width.rounded(.up) + 4)
+        let size = NSSize(width: side, height: side)
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
+            NSGraphicsContext.current?.cgContext.setBlendMode(.destinationOut)
+            // Optically center on the cap height; size() includes line spacing that sits too high.
+            let baseline = (rect.height - font.capHeight) / 2
+            attributed.draw(at: NSPoint(x: (rect.width - textSize.width) / 2,
+                                        y: baseline + font.descender))
+            return true
+        }
+        image.isTemplate = true
+        return image
     }
 
     /// Also catches input source changes the user makes by hand (or via the system UI).

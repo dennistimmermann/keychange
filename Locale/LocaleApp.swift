@@ -8,7 +8,11 @@ struct LocaleApp: App {
         MenuBarExtra {
             ContentView().environmentObject(state)
         } label: {
-            Text(state.menuBarCode)
+            if let icon = state.menuBarIcon {
+                Image(nsImage: icon)
+            } else {
+                Text(state.menuBarCode)
+            }
         }
         .menuBarExtraStyle(.window)
     }
