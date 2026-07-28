@@ -208,10 +208,10 @@ final class AppState: ObservableObject {
     }
 
     private func refreshMenuBarCode() {
-        iconAnimation?.cancel()
         let hadIcon = menuBarIcon != nil
 
         guard isEnabled else {
+            iconAnimation?.cancel()
             if hadIcon, !iconShowsDisabled {
                 let code = menuBarCode
                 animateIcon { Self.enableFrame(t: $0, code: code) }
@@ -223,6 +223,7 @@ final class AppState: ObservableObject {
         }
 
         guard let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
+            iconAnimation?.cancel()
             menuBarCode = "—"
             menuBarIcon = nil
             iconShowsDisabled = false
@@ -230,7 +231,16 @@ final class AppState: ObservableObject {
         }
         let languages = Self.property(current, kTISPropertyInputSourceLanguages) as? [String] ?? []
         let oldCode = menuBarCode
-        menuBarCode = Self.badgeText(for: languages.first)
+        let newCode = Self.badgeText(for: languages.first)
+
+        // Input methods (e.g. Korean: method + input mode) fire the change
+        // notification more than once per switch. menuBarCode is already the
+        // target of whatever is showing or animating — a same-code refresh is a
+        // no-op, so an in-flight swap keeps playing instead of snapping to its end.
+        if hadIcon, !iconShowsDisabled, newCode == oldCode { return }
+
+        iconAnimation?.cancel()
+        menuBarCode = newCode
 
         if iconShowsDisabled, hadIcon {
             let code = menuBarCode
