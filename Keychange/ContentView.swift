@@ -23,13 +23,28 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
+            if state.autoDisabled {
+                Button {
+                    state.isEnabled = true
+                } label: {
+                    Text("Disabled — the input source was changed outside Keychange. Click to re-enable.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+                        .contentShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 3)
+                .padding(.bottom, 6)
+            }
+
             if showsEmptyState {
                 emptyState
             } else {
                 deviceList
-                    // Master switch off: the list dims but stays interactive.
-                    .opacity(state.isEnabled ? 1 : 0.4)
-                    .animation(.easeInOut(duration: 0.2), value: state.isEnabled)
             }
 
             Divider()
@@ -93,7 +108,7 @@ struct ContentView: View {
         return HStack(spacing: 0) {
             // Leading rail. Always present so names stay aligned; only coloured when active.
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(isActive ? Color(nsColor: .systemGreen) : Color.clear)
+                .fill(isActive ? Color.accentColor : Color.clear)
                 .frame(width: 3)
                 .padding(.trailing, 6)
 
@@ -186,6 +201,8 @@ struct ContentView: View {
 
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 1) {
+            settingsToggle("Auto-disable on external switch", isOn: $state.autoDisableOnExternalSwitch)
+                .help("When you change the input source yourself — via the Input menu or a keyboard shortcut — Keychange turns itself off instead of switching back while you type. Turn the master switch on again to resume automatic switching.")
             settingsToggle("Launch at login", isOn: $state.launchAtLogin)
 
             Button(action: state.quit) {

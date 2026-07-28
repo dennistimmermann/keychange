@@ -34,7 +34,7 @@ final class AppState: ObservableObject {
     /// The Keychange mark with the current source's code; nil → show menuBarCode text.
     @Published var menuBarIcon: NSImage? = nil
 
-    /// deviceID -> inputSourceID. A missing key means "Default": never switch for that device.
+    /// deviceID -> inputSourceID. A missing key means "Don't switch" for that device.
     @Published var mapping: [String: String] = [:] {
         didSet { defaults.set(mapping, forKey: Key.mapping) }
     }
@@ -44,7 +44,15 @@ final class AppState: ObservableObject {
         didSet {
             defaults.set(isEnabled, forKey: Key.isEnabled)
             refreshMenuBarCode()
+            // Cleared after refreshMenuBarCode so the re-enable animation still
+            // sees the flag and fades the "!" out.
+            if isEnabled { autoDisabled = false }
         }
+    }
+    /// When on, a source change made outside the app (system Input menu, shortcut)
+    /// disables switching until the user re-enables it.
+    @Published var autoDisableOnExternalSwitch: Bool {
+        didSet { defaults.set(autoDisableOnExternalSwitch, forKey: Key.autoDisableOnExternalSwitch) }
     }
     @Published var launchAtLogin: Bool {
         didSet {
@@ -57,6 +65,8 @@ final class AppState: ObservableObject {
     private enum Key {
         static let mapping = "mapping"
         static let isEnabled = "isEnabled"
+        static let autoDisableOnExternalSwitch = "autoDisableOnExternalSwitch"
+        static let autoDisabled = "autoDisabled"
     }
 
     private let defaults = UserDefaults.standard
@@ -64,16 +74,32 @@ final class AppState: ObservableObject {
     /// autokbisw's `lastActiveKeyboard` debounce: only act when the typing device actually changes.
     private var lastActiveID: String?
     private var iconAnimation: Task<Void, Never>?
+    /// The last source this app selected, and the last one observed at all. An
+    /// external switch is a notification where the source actually CHANGED to
+    /// something we didn't select — comparing against lastAppSelected alone would
+    /// re-trigger on stray notifications long after the real switch (input methods
+    /// fire them on focus changes), e.g. immediately after re-enabling.
+    private var lastAppSelected: String?
+    private var lastKnownSourceID: String?
+    /// Set when "Auto-disable on external switch" turned the app off (drives the "!" mark
+    /// and the popover info box); cleared when the user re-enables. Persisted so a
+    /// relaunch keeps the reason.
+    @Published private(set) var autoDisabled = false {
+        didSet { defaults.set(autoDisabled, forKey: Key.autoDisabled) }
+    }
     /// Whether the status item currently shows the disabled mark (drives the toggle animation).
     private var iconShowsDisabled = false
 
     init() {
         mapping = defaults.dictionary(forKey: Key.mapping) as? [String: String] ?? [:]
         isEnabled = defaults.object(forKey: Key.isEnabled) as? Bool ?? true
+        autoDisableOnExternalSwitch = defaults.bool(forKey: Key.autoDisableOnExternalSwitch)
+        autoDisabled = defaults.bool(forKey: Key.autoDisabled)
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
         refreshInputSources()
         refreshMenuBarCode()
+        lastKnownSourceID = currentSourceID
         observeInputSourceChanges()
         startMonitoring()
     }
@@ -204,6 +230,7 @@ final class AppState: ObservableObject {
         let filter = [kTISPropertyInputSourceID as String: sourceID] as CFDictionary
         guard let matches = TISCreateInputSourceList(filter, false)?.takeRetainedValue() as? [TISInputSource],
               let source = matches.first else { return }
+        lastAppSelected = sourceID
         TISSelectInputSource(source)
     }
 
@@ -211,12 +238,16 @@ final class AppState: ObservableObject {
         let hadIcon = menuBarIcon != nil
 
         guard isEnabled else {
+            // Already showing (or animating toward) the disabled mark: leave it be —
+            // a duplicate refresh must not snap a running fade to its end.
+            if hadIcon, iconShowsDisabled { return }
             iconAnimation?.cancel()
-            if hadIcon, !iconShowsDisabled {
+            let showMark = autoDisabled
+            if hadIcon {
                 let code = menuBarCode
-                animateIcon { Self.enableFrame(t: $0, code: code) }
+                animateIcon { Self.enableFrame(t: $0, code: code, autoDisabledMark: showMark) }
             } else {
-                menuBarIcon = Self.disabledIcon()
+                menuBarIcon = Self.disabledIcon(autoDisabledMark: showMark)
             }
             iconShowsDisabled = true
             return
@@ -244,7 +275,8 @@ final class AppState: ObservableObject {
 
         if iconShowsDisabled, hadIcon {
             let code = menuBarCode
-            animateIcon { Self.enableFrame(t: 1 - $0, code: code) }
+            let showMark = autoDisabled
+            animateIcon { Self.enableFrame(t: 1 - $0, code: code, autoDisabledMark: showMark) }
         } else if hadIcon, oldCode != menuBarCode, oldCode != "—" {
             let newCode = menuBarCode
             animateIcon { Self.swapFrame(t: $0, from: oldCode, to: newCode) }
@@ -363,11 +395,13 @@ final class AppState: ObservableObject {
 
     /// One frame of the enable/disable transition. t = 0: enabled badge (which is
     /// also the static mark). t = 1: disabled — same geometry, front plate dimmed
-    /// to 40% with the code faded out. No motion, just opacity.
-    nonisolated private static func enableFrame(t: CGFloat, code: String) -> NSImage {
+    /// to 40% with the code faded out. No motion, just opacity. `autoDisabledMark` fades
+    /// a "!" in as the code fades out (auto-disabled by an external switch).
+    nonisolated private static func enableFrame(t: CGFloat, code: String, autoDisabledMark: Bool = false) -> NSImage {
         markImage { ctx in
             drawPlate(backPlate, alpha: 0.4, ctx)
             drawPlate(frontPlate, alpha: 1 - 0.6 * t, code: code, glyphFraction: 1 - t, ctx)
+            if autoDisabledMark { knockOut(glyph("!"), in: frontPlate, fraction: t, ctx) }
         }
     }
 
@@ -375,8 +409,8 @@ final class AppState: ObservableObject {
         enableFrame(t: 0, code: text)
     }
 
-    nonisolated private static func disabledIcon() -> NSImage {
-        enableFrame(t: 1, code: "")
+    nonisolated private static func disabledIcon(autoDisabledMark: Bool) -> NSImage {
+        enableFrame(t: 1, code: "", autoDisabledMark: autoDisabledMark)
     }
 
     /// Also catches input source changes the user makes by hand (or via the system UI).
@@ -387,8 +421,24 @@ final class AppState: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.refreshInputSources()
-                self?.refreshMenuBarCode()
+                guard let self else { return }
+                // A change we didn't make = the user switched by hand. Forget the
+                // active device so the next keystroke re-applies its mapping
+                // ("mapping wins") through the normal device-change path — no
+                // per-keystroke source checks needed. Optionally step aside
+                // entirely instead of correcting them.
+                if let current = self.currentSourceID, current != self.lastKnownSourceID {
+                    self.lastKnownSourceID = current
+                    if current != self.lastAppSelected {
+                        self.lastActiveID = nil
+                        if self.autoDisableOnExternalSwitch, self.isEnabled {
+                            self.autoDisabled = true
+                            self.isEnabled = false
+                        }
+                    }
+                }
+                self.refreshInputSources()
+                self.refreshMenuBarCode()
             }
         }
     }
