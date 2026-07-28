@@ -1,6 +1,6 @@
 name: Release
 
-# Tag a commit `v1.2.3` and push the tag -> builds Locale 1.2.3 and attaches
+# Tag a commit `v1.2.3` and push the tag -> builds Keychange 1.2.3 and attaches
 # the zipped app to a GitHub release of that tag.
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
       - name: Build (version from tag)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          xcodebuild -project Locale.xcodeproj -scheme Locale -configuration Release \
+          xcodebuild -project Keychange.xcodeproj -scheme Keychange -configuration Release \
             -derivedDataPath build \
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
@@ -29,9 +29,9 @@ jobs:
         # drop CODE_SIGNING_ALLOWED=NO, plus notarytool for distribution.
 
       - name: Zip app
-        run: ditto -c -k --keepParent build/Build/Products/Release/Locale.app Locale.zip
+        run: ditto -c -k --keepParent build/Build/Products/Release/Keychange.app Keychange.zip
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" Locale.zip --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" Keychange.zip --generate-notes

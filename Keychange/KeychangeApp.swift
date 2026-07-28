@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct LocaleApp: App {
+struct KeychangeApp: App {
     @StateObject private var state = AppState()
 
     var body: some Scene {

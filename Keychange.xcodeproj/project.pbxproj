@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		1A00000000000000000000A1 /* Locale.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Locale.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A00000000000000000000A1 /* Keychange.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Keychange.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		1A00000000000000000000B1 /* Locale */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Locale; sourceTree = "<group>"; };
+		1A00000000000000000000B1 /* Keychange */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Keychange; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -28,7 +28,7 @@
 		1A00000000000000000000D1 = {
 			isa = PBXGroup;
 			children = (
-				1A00000000000000000000B1 /* Locale */,
+				1A00000000000000000000B1 /* Keychange */,
 				1A00000000000000000000D2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -36,7 +36,7 @@
 		1A00000000000000000000D2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				1A00000000000000000000A1 /* Locale.app */,
+				1A00000000000000000000A1 /* Keychange.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -44,9 +44,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		1A00000000000000000000E1 /* Locale */ = {
+		1A00000000000000000000E1 /* Keychange */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1A00000000000000000000F1 /* Build configuration list for PBXNativeTarget "Locale" */;
+			buildConfigurationList = 1A00000000000000000000F1 /* Build configuration list for PBXNativeTarget "Keychange" */;
 			buildPhases = (
 				1A00000000000000000000C2 /* Sources */,
 				1A00000000000000000000C1 /* Frameworks */,
@@ -57,13 +57,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				1A00000000000000000000B1 /* Locale */,
+				1A00000000000000000000B1 /* Keychange */,
 			);
-			name = Locale;
+			name = Keychange;
 			packageProductDependencies = (
 			);
-			productName = Locale;
-			productReference = 1A00000000000000000000A1 /* Locale.app */;
+			productName = Keychange;
+			productReference = 1A00000000000000000000A1 /* Keychange.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -81,7 +81,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 1A00000000000000000000F2 /* Build configuration list for PBXProject "Locale" */;
+			buildConfigurationList = 1A00000000000000000000F2 /* Build configuration list for PBXProject "Keychange" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -95,7 +95,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				1A00000000000000000000E1 /* Locale */,
+				1A00000000000000000000E1 /* Keychange */,
 			);
 		};
 /* End PBXProject section */
@@ -181,7 +181,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dennis.Locale;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dennis.Keychange;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -205,7 +205,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dennis.Locale;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dennis.Keychange;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -214,7 +214,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1A00000000000000000000F1 /* Build configuration list for PBXNativeTarget "Locale" */ = {
+		1A00000000000000000000F1 /* Build configuration list for PBXNativeTarget "Keychange" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A0000000000000000000103 /* Debug */,
@@ -223,7 +223,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1A00000000000000000000F2 /* Build configuration list for PBXProject "Locale" */ = {
+		1A00000000000000000000F2 /* Build configuration list for PBXProject "Keychange" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A0000000000000000000101 /* Debug */,

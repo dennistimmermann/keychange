@@ -9,6 +9,10 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var state: AppState
 
+    /// Option-click on the menu bar item reveals device details for this open,
+    /// like the system's own applets (Wi-Fi, Battery). Sampled when the panel opens.
+    @State private var optionHeld = false
+
     /// Empty state doubles as the "no permission" state: in both cases there is
     /// nothing to list, and the call to action is the same.
     private var showsEmptyState: Bool {
@@ -39,13 +43,19 @@ struct ContentView: View {
         // MenuBarExtra(.window) proposes the previous (larger) height after the
         // settings foldout closes; without this the device list stretches to fill it.
         .fixedSize(horizontal: false, vertical: true)
+        .onAppear { optionHeld = NSEvent.modifierFlags.contains(.option) }
+        // onAppear alone misses reopens when SwiftUI keeps the view alive, so also
+        // re-sample whenever the panel becomes the key window.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            optionHeld = NSEvent.modifierFlags.contains(.option)
+        }
     }
 
     // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text("LOCALE")
+            Text("KEYCHANGE")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.66) // 0.06em at 11pt
                 .foregroundStyle(.secondary)
@@ -56,7 +66,7 @@ struct ContentView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 
-            Toggle("Enable Locale", isOn: $state.isEnabled)
+            Toggle("Enable Keychange", isOn: $state.isEnabled)
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .labelsHidden()
@@ -94,7 +104,7 @@ struct ContentView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
-                if state.showDeviceDetails {
+                if optionHeld {
                     Text("VID \(hex4(device.vendorID))   PID \(hex4(device.productID))")
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.tertiary)
@@ -153,7 +163,7 @@ struct ContentView: View {
                 .foregroundStyle(Color(nsColor: .labelColor))
 
             if !state.hasPermission {
-                Text("Locale needs Input Monitoring access to see which keyboard you are typing on.")
+                Text("Keychange needs Input Monitoring access to see which keyboard you are typing on.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -176,11 +186,10 @@ struct ContentView: View {
 
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 1) {
-            settingsToggle("Show device details", isOn: $state.showDeviceDetails)
             settingsToggle("Launch at login", isOn: $state.launchAtLogin)
 
             Button(action: state.quit) {
-                Text("Quit Locale")
+                Text("Quit")
                     .font(.system(size: 13))
                     .foregroundStyle(Color(nsColor: .labelColor))
                     .frame(maxWidth: .infinity, alignment: .leading)

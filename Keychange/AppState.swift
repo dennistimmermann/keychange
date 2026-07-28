@@ -46,9 +46,6 @@ final class AppState: ObservableObject {
             refreshMenuBarCode()
         }
     }
-    @Published var showDeviceDetails: Bool {
-        didSet { defaults.set(showDeviceDetails, forKey: Key.showDeviceDetails) }
-    }
     @Published var launchAtLogin: Bool {
         didSet {
             // try? on purpose: a failed (un)register is not worth a UI error path.
@@ -60,7 +57,6 @@ final class AppState: ObservableObject {
     private enum Key {
         static let mapping = "mapping"
         static let isEnabled = "isEnabled"
-        static let showDeviceDetails = "showDeviceDetails"
     }
 
     private let defaults = UserDefaults.standard
@@ -71,7 +67,6 @@ final class AppState: ObservableObject {
     init() {
         mapping = defaults.dictionary(forKey: Key.mapping) as? [String: String] ?? [:]
         isEnabled = defaults.object(forKey: Key.isEnabled) as? Bool ?? true
-        showDeviceDetails = defaults.bool(forKey: Key.showDeviceDetails)
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
         refreshInputSources()
@@ -234,7 +229,7 @@ final class AppState: ObservableObject {
     /// Disabled look: keyboard symbol instead of a locale badge (we're not switching),
     /// dimmed the way the system dims status items (template image at reduced alpha).
     private static func disabledIcon() -> NSImage {
-        let symbol = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Locale disabled")!
+        let symbol = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Keychange disabled")!
             .withSymbolConfiguration(.init(pointSize: 11, weight: .medium))!
         let image = NSImage(size: NSSize(width: badgeSide, height: badgeSide), flipped: false) { rect in
             NSColor.black.withAlphaComponent(0.4).setFill()
