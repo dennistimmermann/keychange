@@ -47,7 +47,9 @@ struct AboutView: View {
                 .padding(.horizontal, 20)
 
             VStack(spacing: 0) {
-                updateRows
+                // Next to the version it acts on; the "check automatically" setting stays
+                // with the other settings in the popover.
+                actionRow("Check for Updates…", action: state.checkForUpdates)
                 linkRow("GitHub repository", detail: repoURL.host.map { $0 + repoURL.path } ?? "", url: repoURL)
                 linkRow("Keychange is free — buy me a coffee", detail: "", url: coffeeURL)
             }
@@ -59,7 +61,7 @@ struct AboutView: View {
 
             footer
         }
-        .frame(width: 420, height: 547) // +52 for the tip box, +68 for the two update rows
+        .frame(width: 420, height: 513) // +52 for the tip box, +34 for the update row
         .background(Color(nsColor: .windowBackgroundColor))
         .background(WindowChrome())
     }
@@ -79,26 +81,6 @@ struct AboutView: View {
         }
         .font(.system(size: 11.5, design: .monospaced))
         .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-    }
-
-    /// The version is right above, so this is where the update controls belong.
-    private var updateRows: some View {
-        VStack(spacing: 0) {
-            actionRow("Check for Updates…", action: state.checkForUpdates)
-            rowChrome("Check for updates automatically") {
-                HStack(spacing: 8) {
-                    Text("Check for updates automatically")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color(nsColor: .labelColor))
-                    Spacer(minLength: 8)
-                    Toggle("Check for updates automatically",
-                           isOn: $state.automaticallyChecksForUpdates)
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                        .labelsHidden()
-                }
-            }
-        }
     }
 
     /// Whole row is the hit target; the ↗ is a glyph, not a button.
