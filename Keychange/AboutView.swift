@@ -10,6 +10,7 @@ struct AboutView: View {
     private let coffeeURL = URL(string: "https://buymeacoffee.com/dtimmermann")!
 
     private let upstreamURL = "https://github.com/ohueter/autokbisw"
+    private let sparkleURL = "https://github.com/sparkle-project/Sparkle"
 
     @EnvironmentObject private var state: AppState
     /// Keyed by row label — not every row is a link, so a URL won't do as the key.
@@ -61,7 +62,7 @@ struct AboutView: View {
 
             footer
         }
-        .frame(width: 420, height: 513) // +52 for the tip box, +34 for the update row
+        .frame(width: 420, height: 531) // +52 for the tip box, +34 for the update row, +18 for the Sparkle line
         .background(Color(nsColor: .windowBackgroundColor))
         .background(WindowChrome())
     }
@@ -138,6 +139,7 @@ struct AboutView: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Text("Inspired by [autokbisw](\(upstreamURL)) by @ohueter.")
+            Text("Updates by [Sparkle](\(sparkleURL)), MIT licensed.")
             Text("© 2026 Dennis Timmermann")
         }
         .font(.system(size: 11))

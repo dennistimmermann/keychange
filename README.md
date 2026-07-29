@@ -62,7 +62,7 @@ method like Korean, which composes from key codes at delivery time.
 
 ## Building
 
-Requires Xcode 16+ and macOS 14 or later.
+Requires Xcode 26 and macOS 14 or later.
 
 ```sh
 git clone https://github.com/dennistimmermann/keychange.git
@@ -82,5 +82,7 @@ release.
 
 Inspired by [autokbisw](https://github.com/ohueter/autokbisw) by @ohueter, a command-line tool that
 solves the same problem. Keychange is an independent implementation with a UI.
+
+Automatic updates are powered by [Sparkle](https://github.com/sparkle-project/Sparkle), MIT licensed.
 
 [MIT](LICENSE) © 2026 Dennis Timmermann
