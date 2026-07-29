@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/panel.png" width="390" alt="The Keychange popover listing two keyboards, each with its own input source.">
+  <img src="docs/panel.png" width="390" alt="The Keychange popover listing three keyboards, each with its own input source.">
 </p>
 
 macOS can switch input sources per app or with a shortcut — but never per keyboard. If your

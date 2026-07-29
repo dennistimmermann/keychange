@@ -165,9 +165,9 @@ h1 {
 .hero-shot img {
   display: block;
   width: 390px;
-  /* The capture carries 23px of transparent shadow margin; -13px top puts the
-     panel 6px under the bar, where macOS draws it. */
-  margin: -13px 0 0 auto;
+  /* The capture carries ~12px of transparent shadow margin; -2px top puts the
+     panel 10px under the bar, where macOS draws it. */
+  margin: -2px 0 0 auto;
 }
 
 
