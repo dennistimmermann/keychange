@@ -37,13 +37,12 @@ struct DeviceSetting: Equatable {
 /// plus a `sign_update` step in the release workflow.
 private final class UpdaterConfig: NSObject, SPUUpdaterDelegate {
     func feedURLString(for updater: SPUUpdater) -> String? {
-        // No feed for the dev bundle: its version is 1.0 (build 1), so every release
-        // looks newer and Sparkle would offer to replace Keychange Dev with Keychange.
-        #if DEBUG
-        nil
-        #else
+        // The dev bundle is version 1.0 (build 1), so every release looks newer to
+        // Sparkle and the dev build always has an update waiting — which is what makes
+        // it useful for looking at the update UI. It stops at the install: the dev build
+        // is signed "Apple Development" and the release "Developer ID", so the signature
+        // comparison rejects it.
         "https://github.com/dennistimmermann/keychange/releases/latest/download/appcast.xml"
-        #endif
     }
 
     /// The popover has the toggle; no need for Sparkle's permission modal.

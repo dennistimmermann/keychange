@@ -105,11 +105,25 @@ jobs:
           ditto -c -k --keepParent "$APP" Keychange.zip
           spctl -a -vvv -t exec "$APP"
 
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" Keychange.zip --generate-notes
+
       # Sparkle's feed. `releases/latest/download/appcast.xml` always redirects to the
       # newest release's copy, so the feed is a release asset and never needs a commit
       # back to the repo. One <item> is a valid appcast; each release replaces the feed.
-      - name: Write appcast
+      # Runs after the release exists because the notes are the release body.
+      - name: Publish appcast
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # The release body is markdown and Sparkle renders HTML, so let GitHub convert
+          # it. Inlining the notes beats sparkle:releaseNotesLink pointing at the release
+          # page, which renders the whole GitHub page — navigation, footer and all —
+          # inside the update panel.
+          NOTES=$(gh release view "$GITHUB_REF_NAME" --json body -q .body)
+          HTML=$(gh api -X POST /markdown -f text="$NOTES")
           # ponytail: no sparkle:edSignature — updates are validated against the
           # Developer ID signature instead. Add SUPublicEDKey + sign_update if updates
           # ever have to install with elevated privileges (Sparkle pre-validates those,
@@ -125,7 +139,9 @@ jobs:
                 <sparkle:version>$BUILD</sparkle:version>
                 <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
                 <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-                <sparkle:releaseNotesLink>https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME</sparkle:releaseNotesLink>
+                <description><![CDATA[
+          $HTML
+          ]]></description>
                 <enclosure url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/Keychange.zip"
                            length="$(stat -f%z Keychange.zip)"
                            type="application/octet-stream"/>
@@ -134,8 +150,4 @@ jobs:
           </rss>
           XML
           cat appcast.xml
-
-      - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" Keychange.zip appcast.xml --generate-notes
+          gh release upload "$GITHUB_REF_NAME" appcast.xml
