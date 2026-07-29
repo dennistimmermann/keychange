@@ -15,7 +15,8 @@
 </p>
 
 <p align="center">
-  <img src="docs/panel.png" width="390" alt="The Keychange popover listing three keyboards, each with its own input source.">
+  <img src="docs/demo.gif" width="620"
+       alt="Typing “Hello ” on a Keychron K2 set to U.S., then switching to the built-in keyboard set to German and typing “Grüße!” — the menu bar badge swaps EN to DE and the popover marks the keyboard being used. A loupe magnifies the menu bar badge.">
 </p>
 
 macOS can switch input sources per app or with a shortcut — but never per keyboard. If your

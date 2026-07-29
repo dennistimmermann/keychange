@@ -72,7 +72,7 @@ nav {
 
 .hero {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: 1fr 560px;
   gap: 40px;
   align-items: center;
   padding: 76px 40px 68px;
@@ -109,15 +109,18 @@ h1 {
 .kofi svg { flex: none; opacity: 0.75; }
 
 /* ---------- the app shot ----------
-   panel.png is the real popover captured at 2x, shown at half size so it
-   measures its true 344px. The bar above it is drawn here rather than
-   photographed, as one more flat surface in the same family as the cards. */
+   demo-no-loupe.gif (make-demo.py) is a fixed composition carrying its own menu
+   bar, popover and text field, on this page's own desk colour so it sits flush.
+   It holds its 560px wherever that fits, and scales down from there — unlike the
+   static capture it replaced, it is one raster of the whole scene, so shrinking it
+   is better than making the hero scroll sideways. */
 
-.hero-shot { justify-self: end; width: 400px; }
+.hero-shot { justify-self: end; width: 560px; }
 
 /* Menu bar metrics measured off a real capture: 40pt tall, 14px system text,
    items 20pt apart, 18pt from the right edge. The surface is .cards article's:
-   flat panel, hairline, 11px radius, whisper shadow. */
+   flat panel, hairline, 11px radius, whisper shadow. Used by og.html, which
+   still composites the static panel.png. */
 .menubar {
   display: flex;
   align-items: center;
@@ -164,10 +167,10 @@ h1 {
 
 .hero-shot img {
   display: block;
-  width: 390px;
-  /* The capture carries ~12px of transparent shadow margin; -2px top puts the
-     panel 10px under the bar, where macOS draws it. */
-  margin: -2px 0 0 auto;
+  width: 560px;
+  /* The width/height attributes give the intrinsic ratio, so height stays right. */
+  max-width: 100%;
+  height: auto;
 }
 
 
@@ -208,25 +211,23 @@ footer {
   color: var(--footer);
 }
 
-/* ---------- responsive ----------
-   The panel is a real 344pt macOS surface: it never scales below that. */
+/* ---------- responsive ---------- */
 
-@media (max-width: 1180px) {
-  .hero { grid-template-columns: 1fr minmax(400px, 44%); }
+/* The shot wants 560px, so the hero goes single column while the copy column still
+   has the ~380px the two-column layout was built around. In its own row the auto
+   margins centre it, until the row itself is narrower than 560 and max-width takes
+   over and scales it down. */
+@media (max-width: 1060px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-shot { justify-self: stretch; width: 100%; margin-top: 28px; }
+  .hero-shot img { margin-inline: auto; }
 }
 
 @media (max-width: 900px) {
   nav { padding: 16px 24px; }
   .nav-links a:not(.button) { display: none; }
 
-  .hero {
-    grid-template-columns: 1fr;
-    padding: 48px 24px 52px;
-  }
-  /* Single column: the bar runs the full width like a real menu bar, with the
-     panel hanging off its right end. Narrower than the panel and the container
-     scrolls rather than shrinking it. */
-  .hero-shot { justify-self: stretch; width: 100%; overflow-x: auto; margin-top: 28px; }
+  .hero { padding: 48px 24px 52px; }
   .hero-mark { width: 72px; height: 72px; }
   h1 { font-size: 32px; }
 

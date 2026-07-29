@@ -59,13 +59,11 @@
       </a>
     </div>
 
+    <!-- The loop (make-demo.py) brings its own menu bar, popover and text field, so
+         it replaces the drawn bar the static shot used to sit under. -->
     <div class="hero-shot">
-      <div class="menubar">
-        <span class="mb-badge" aria-label="Keychange in the menu bar, showing EN"><i></i><b>EN</b></span>
-        <span class="mb-dim" id="clock">Wed 29. Jul&nbsp;&nbsp;15:32</span>
-      </div>
-      <img src="panel.png" width="390" height="188"
-           alt="The Keychange popover listing three keyboards: the built-in keyboard set to German, a Keychron K2 set to U.S., and MX Keys set to 2-Set Korean.">
+      <img src="demo-no-loupe.gif" width="560" height="432"
+           alt="Typing “Hello ” on a Keychron K2 set to U.S., then switching to the built-in keyboard set to German and typing “Grüße!”. The menu bar badge swaps EN to DE and the popover marks whichever keyboard is being typed on.">
     </div>
   </header>
 
@@ -100,18 +98,5 @@
 
 </div>
 
-<script>
-// The mock menu bar shows the visitor's own clock, in their locale — the markup
-// carries a static fallback for anyone without JS.
-(function tick() {
-  const now = new Date();
-  const date = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
-                  .replace(/,/g, '');   // the menu bar spells it without commas
-  const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  document.getElementById('clock').textContent = date + '  ' + time;
-  // Land on the next minute rather than drifting a second at a time.
-  setTimeout(tick, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()));
-})();
-</script>
 </body>
 </html>
