@@ -12,7 +12,7 @@ macOS switches input sources per app, or when you press a shortcut — never per
 more than one keyboard with different layouts, you end up switching by hand every time you move your
 hands. Keychange is a small menu bar app that does it for you.
 
-**Website:** <https://dennistimmermann.github.io/keychange/>
+**Website:** <https://keychange.dev>
 
 ## Install
 
