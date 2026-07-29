@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Keychange — dmg background source</title>
+<!--
+  Source for background.tiff, the 660×400 disk-image window background. Like
+  docs/og.html it exists so the image can be regenerated instead of redrawn:
+
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+      --screenshot=background@2x.png --window-size=660,400 \
+      --force-device-scale-factor=2 --hide-scrollbars docs/background.html
+    sips --resampleWidth 660 background@2x.png --out background.png
+    tiffutil -cathidpicheck background.png background@2x.png -out background.tiff
+
+  The icons are not in the image: the real Keychange.app sits centered at
+  (165, 210) and the Applications alias at (495, 210), both 128pt — the window
+  layout (set when the dmg is built) has to match the arrow drawn here.
+
+  It borrows the site's style.css so the desk colour and type stay in step.
+-->
+<link rel="stylesheet" href="style.css">
+<style>
+  html, body { margin: 0; }
+  body {
+    position: relative;
+    width: 660px;
+    height: 400px;
+    background: var(--desk);
+    overflow: hidden;
+  }
+  /* The website's wordmark, centered. */
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding-top: 44px;
+  }
+  .brand img { display: block; width: 40px; height: 40px; border-radius: 9px; }
+  .brand span {
+    font-family: var(--sans);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .tagline {
+    text-align: center;
+    font-size: 12.5px;
+    margin: 10px 0 0;
+  }
+  /* Between the two icon slots, on their centerline. */
+  .arrow { position: absolute; left: 273px; top: 192px; color: var(--body); }
+</style>
+</head>
+<body>
+
+  <div class="brand">
+    <img src="keychange-icon.svg" alt="">
+    <span>Keychange</span>
+  </div>
+  <p class="tagline">One layout per keyboard.</p>
+
+  <svg class="arrow" width="114" height="36" viewBox="0 0 114 36" fill="none">
+    <path d="M2 18 H 104 M 88 4 L 104 18 L 88 32"
+          stroke="currentColor" stroke-width="3.5"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+
+</body>
+</html>

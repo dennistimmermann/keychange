@@ -1,3 +1,2 @@
-- Holding ⌥ while opening Keychange shows each keyboard's device ID; the cog shows the settings and
-  any keyboards you have hidden. The two are independent — neither triggers the other any more.
-- The About window now credits Sparkle, which powers the automatic updates.
+- Releases now include a disk image (`Keychange.dmg`) with the usual drag-to-Applications
+  install, alongside the zip.

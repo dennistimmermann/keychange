@@ -105,12 +105,35 @@ jobs:
           ditto -c -k --keepParent "$APP" Keychange.zip
           spctl -a -vvv -t exec "$APP"
 
+      # The dmg is the first-install download: its drag-to-Applications window puts
+      # the app where Sparkle can update it (an app launched straight from an
+      # unzipped ~/Downloads runs translocated and can't update itself). The zip
+      # stays too — it is the appcast enclosure, Sparkle's recommended format.
+      - name: Build dmg
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          # dmgbuild, not create-dmg: it writes the Finder layout (.DS_Store)
+          # directly instead of scripting Finder, whose AppleScript fails
+          # silently on headless runners. Layout lives in dmg-settings.py.
+          python3 -m venv dmgenv
+          dmgenv/bin/pip -q install dmgbuild
+          dmgenv/bin/dmgbuild -s dmg-settings.py Keychange Keychange.dmg
+          codesign --sign "Developer ID Application" --timestamp Keychange.dmg
+          # The app inside is already notarized and stapled; this notarizes the
+          # image itself. A failure here would be new, so the zip step's log
+          # plumbing isn't repeated — the non-zero exit is enough.
+          xcrun notarytool submit Keychange.dmg --wait \
+            --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id N3BEDTWSK4
+          xcrun stapler staple Keychange.dmg
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         # RELEASE_NOTES.md, not --generate-notes: this body is what users read in
         # Sparkle's update panel, and a list of commit subjects does not serve them.
-        run: gh release create "$GITHUB_REF_NAME" Keychange.zip --notes-file RELEASE_NOTES.md
+        run: gh release create "$GITHUB_REF_NAME" Keychange.zip Keychange.dmg --notes-file RELEASE_NOTES.md
 
       # Sparkle's feed. `releases/latest/download/appcast.xml` always redirects to the
       # newest release's copy, so the feed is a release asset and never needs a commit
