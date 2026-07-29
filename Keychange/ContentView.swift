@@ -54,6 +54,10 @@ struct ContentView: View {
             }
 
             if revealed {
+                Divider()
+                    .padding(.vertical, 5)
+                    .padding(.horizontal, 9)
+
                 settingsSection
             }
         }
