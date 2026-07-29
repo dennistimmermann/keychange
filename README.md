@@ -16,8 +16,10 @@ hands. Keychange is a small menu bar app that does it for you.
 
 ## Install
 
-Download the latest build from [Releases](../../releases), move `Keychange.app` to
-`/Applications`, and launch it.
+Download
+[Keychange.dmg](https://github.com/dennistimmermann/keychange/releases/latest/download/Keychange.dmg),
+drag `Keychange.app` into `/Applications`, and launch it. (A zip is also on the
+[Releases](../../releases) page.)
 
 Builds are signed and notarized, so it opens with a double-click.
 
