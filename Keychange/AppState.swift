@@ -225,6 +225,13 @@ final class AppState: ObservableObject {
         updater.updater.checkForUpdates()
     }
 
+    func openKeyboardSettings() {
+        // There is no deep link to the "Edit Input Sources" sheet itself; this lands
+        // on the Keyboard pane, where Input Sources has its Edit… button.
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.keyboard?InputSources")!
+        NSWorkspace.shared.open(url)
+    }
+
     func openAccessibilitySettings() {
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
         NSWorkspace.shared.open(url)
@@ -397,7 +404,9 @@ final class AppState: ObservableObject {
 
     // MARK: - Text Input Sources
 
-    private func refreshInputSources() {
+    /// Also called when the popover opens: enabling a source in System Settings does
+    /// not always fire a TIS notification we observe, so the list could be stale.
+    func refreshInputSources() {
         guard let all = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource] else { return }
         inputSources = all.compactMap { source in
             guard Self.property(source, kTISPropertyInputSourceCategory) as? String == (kTISCategoryKeyboardInputSource as String),

@@ -24,6 +24,7 @@ struct ContentView: View {
 
     @State private var cogHovered = false
 
+
     /// The picker's tag for "Hidden". Not a source ID (those are reverse-DNS).
     private static let hiddenTag = "hidden"
 
@@ -57,18 +58,21 @@ struct ContentView: View {
                 accessibilityPrompt
             } else {
                 deviceList
-                    // The cog used to sit in a row below the list and carried the bottom
-                    // margin with it. The prompts have their own generous padding and the
-                    // settings rows bring theirs, so only the bare list needs this back.
-                    .padding(.bottom, settingsExpanded ? 0 : 4)
+                    // The prompts have their own generous padding and the settings
+                    // rows bring theirs, so only the bare list needs this back.
+                    .padding(.bottom, settingsExpanded || needsMoreSources ? 0 : 4)
             }
 
-            if settingsExpanded {
+            if settingsExpanded || needsMoreSources {
                 Divider()
                     .padding(.vertical, 5)
                     .padding(.horizontal, 9)
 
-                settingsSection
+                if settingsExpanded {
+                    settingsSection
+                } else {
+                    addInputSourcesButton
+                }
             }
         }
         .padding(6)
@@ -89,6 +93,7 @@ struct ContentView: View {
         optionHeld = NSEvent.modifierFlags.contains(.option)
         hiddenSnapshot = Set(state.settings.filter(\.value.hidden).keys)
         state.refreshDevices()
+        state.refreshInputSources()
         state.retryTapIfNeeded()
     }
 
@@ -283,6 +288,26 @@ struct ContentView: View {
         .accessibilityLabel(settingsExpanded ? "Hide settings" : "Show settings")
     }
 
+    /// With one enabled input source there is nothing to switch between, so this
+    /// row stays visible even while the settings are collapsed.
+    private var needsMoreSources: Bool {
+        state.inputSources.count < 2
+    }
+
+    private var addInputSourcesButton: some View {
+        settingsButton("Add Input Sources…", action: state.openKeyboardSettings)
+    }
+
+    /// Commands are link-style buttons, the same style the permission prompts use,
+    /// so they read as clickable next to the switch rows, which don't react to hover.
+    private func settingsButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.link)
+            .font(.system(size: 13))
+            .padding(.vertical, 5)
+            .padding(.horizontal, 9)
+    }
+
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 1) {
             settingsToggle("Intercept keystrokes", isOn: $state.instantSwitching,
@@ -292,8 +317,13 @@ struct ContentView: View {
             settingsToggle("Launch at login", isOn: $state.launchAtLogin)
             settingsToggle("Check for updates automatically", isOn: $state.automaticallyChecksForUpdates)
 
+            Divider()
+                .padding(.vertical, 5)
+                .padding(.horizontal, 9)
+
+            addInputSourcesButton
             // "Check for Updates…" lives in the About panel, next to the version it acts on.
-            settingsButton("About Keychange") {
+            settingsButton("About") {
                 // LSUIElement: without activating, the panel opens behind everything.
                 NSApp.activate()
                 openWindow(id: AboutWindow.id)
@@ -302,20 +332,8 @@ struct ContentView: View {
         }
     }
 
-    private func settingsButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13))
-                .foregroundStyle(Color(nsColor: .labelColor))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 5)
-                .padding(.horizontal, 9)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
     /// `hint` adds an ⓘ marking the row as hoverable — the tooltip itself covers the whole row.
+    /// Settings-panel pattern: the switch is the control, the row itself is inert.
     private func settingsToggle(_ title: String, isOn: Binding<Bool>, hint: String? = nil) -> some View {
         HStack(spacing: 8) {
             HStack(spacing: 4) {
@@ -338,4 +356,5 @@ struct ContentView: View {
         .padding(.horizontal, 9)
         .help(hint ?? "")
     }
+
 }
