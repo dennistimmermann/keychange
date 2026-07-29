@@ -24,25 +24,15 @@ struct ContentView: View {
             header
 
             if state.autoDisabled {
-                Button {
+                infoBox("Disabled — the input source was changed outside Keychange. Click to re-enable.") {
                     state.isEnabled = true
-                } label: {
-                    Text("Disabled — the input source was changed outside Keychange. Click to re-enable.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
-                        .contentShape(RoundedRectangle(cornerRadius: 6))
                 }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 3)
-                .padding(.bottom, 6)
             }
 
             if showsEmptyState {
                 emptyState
+            } else if state.tapFailed {
+                accessibilityPrompt
             } else {
                 deviceList
             }
@@ -58,12 +48,67 @@ struct ContentView: View {
         // MenuBarExtra(.window) proposes the previous (larger) height after the
         // settings foldout closes; without this the device list stretches to fill it.
         .fixedSize(horizontal: false, vertical: true)
-        .onAppear { optionHeld = NSEvent.modifierFlags.contains(.option) }
+        .onAppear {
+            optionHeld = NSEvent.modifierFlags.contains(.option)
+            state.retryTapIfNeeded()
+        }
         // onAppear alone misses reopens when SwiftUI keeps the view alive, so also
         // re-sample whenever the panel becomes the key window.
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             optionHeld = NSEvent.modifierFlags.contains(.option)
+            state.retryTapIfNeeded()
         }
+    }
+
+    /// Centered symbol + title block, used for anything the app can't do yet.
+    private func prompt<Content: View>(symbol: String, title: String,
+                                       @ViewBuilder body: () -> Content) -> some View {
+        VStack(spacing: 7) {
+            Image(systemName: symbol)
+                .font(.system(size: 28))
+                .foregroundStyle(.tertiary)
+
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color(nsColor: .labelColor))
+
+            body()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 26)
+        .padding(.horizontal, 22)
+        .padding(.bottom, 24)
+    }
+
+    @ViewBuilder
+    private func promptBody(_ message: String, action title: String, _ action: @escaping () -> Void) -> some View {
+        Text(message)
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+
+        Button(title, action: action)
+            .buttonStyle(.link)
+            .font(.system(size: 12))
+    }
+
+    /// Notice under the header. With an action the whole box is clickable.
+    private func infoBox(_ text: String, action: (() -> Void)? = nil) -> some View {
+        Button { action?() } label: {
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .disabled(action == nil)
+        .padding(.horizontal, 3)
+        .padding(.bottom, 6)
     }
 
     // MARK: - Header
@@ -168,61 +213,61 @@ struct ContentView: View {
     // MARK: - Empty state
 
     private var emptyState: some View {
-        VStack(spacing: 7) {
-            Image(systemName: "keyboard")
-                .font(.system(size: 28))
-                .foregroundStyle(.tertiary)
-
-            Text("No keyboards detected")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color(nsColor: .labelColor))
-
+        prompt(symbol: "keyboard", title: "No keyboards detected") {
             if !state.hasPermission {
-                Text("Keychange needs Input Monitoring access to see which keyboard you are typing on.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Button("Allow Input Monitoring…") {
-                    state.openInputMonitoringSettings()
-                }
-                .buttonStyle(.link)
-                .font(.system(size: 12))
+                promptBody("Keychange needs Input Monitoring access to see which keyboard you are typing on.",
+                           action: "Allow Input Monitoring…", state.openInputMonitoringSettings)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 26)
-        .padding(.horizontal, 22)
-        .padding(.bottom, 24)
+    }
+
+    private var accessibilityPrompt: some View {
+        prompt(symbol: "hand.raised", title: "Accessibility access needed") {
+            promptBody("Keychange needs Accessibility access to correct the first character you type after switching keyboards.",
+                       action: "Allow Accessibility…", state.openAccessibilitySettings)
+        }
     }
 
     // MARK: - Settings
 
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 1) {
-            settingsToggle("Auto-disable on external switch", isOn: $state.autoDisableOnExternalSwitch)
-                .help("When you change the input source yourself — via the Input menu or a keyboard shortcut — Keychange turns itself off instead of switching back while you type. Turn the master switch on again to resume automatic switching.")
+            settingsToggle("Intercept keystrokes", isOn: $state.instantSwitching,
+                           hint: "Fixes the first character, which otherwise still uses the previous layout. To do that Keychange must intercept every key press you make, system-wide, before the app you are typing in receives it — it rewrites the character, and briefly withholds the key press when switching to an input method like Korean. Requires Accessibility access. Leave this off unless the wrong first character bothers you.")
+            settingsToggle("Auto-disable on external switch", isOn: $state.autoDisableOnExternalSwitch,
+                           hint: "When you change the input source yourself — via the Input menu or a keyboard shortcut — Keychange turns itself off instead of switching back while you type. Turn the master switch on again to resume automatic switching.")
             settingsToggle("Launch at login", isOn: $state.launchAtLogin)
 
-            Button(action: state.quit) {
-                Text("Quit")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(nsColor: .labelColor))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 5)
-                    .padding(.horizontal, 9)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+            settingsButton("Quit", action: state.quit)
         }
     }
 
-    private func settingsToggle(_ title: String, isOn: Binding<Bool>) -> some View {
-        HStack(spacing: 8) {
+    private func settingsButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             Text(title)
                 .font(.system(size: 13))
                 .foregroundStyle(Color(nsColor: .labelColor))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 5)
+                .padding(.horizontal, 9)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// `hint` adds an ⓘ marking the row as hoverable — the tooltip itself covers the whole row.
+    private func settingsToggle(_ title: String, isOn: Binding<Bool>, hint: String? = nil) -> some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(nsColor: .labelColor))
+                if hint != nil {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+            }
             Spacer(minLength: 8)
             Toggle(title, isOn: isOn)
                 .toggleStyle(.switch)
@@ -231,5 +276,6 @@ struct ContentView: View {
         }
         .padding(.vertical, 5)
         .padding(.horizontal, 9)
+        .help(hint ?? "")
     }
 }

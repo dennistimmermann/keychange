@@ -54,6 +54,16 @@ final class AppState: ObservableObject {
     @Published var autoDisableOnExternalSwitch: Bool {
         didSet { defaults.set(autoDisableOnExternalSwitch, forKey: Key.autoDisableOnExternalSwitch) }
     }
+    /// Switch from inside the key press (event tap) instead of after it, so the first
+    /// character is already in the new layout.
+    @Published var instantSwitching: Bool {
+        didSet {
+            defaults.set(instantSwitching, forKey: Key.instantSwitching)
+            updateTap()
+        }
+    }
+    /// Set when instant switching is on but the tap could not be created.
+    @Published private(set) var tapFailed = false
     @Published var launchAtLogin: Bool {
         didSet {
             // try? on purpose: a failed (un)register is not worth a UI error path.
@@ -67,6 +77,7 @@ final class AppState: ObservableObject {
         static let isEnabled = "isEnabled"
         static let autoDisableOnExternalSwitch = "autoDisableOnExternalSwitch"
         static let autoDisabled = "autoDisabled"
+        static let instantSwitching = "instantSwitching"
     }
 
     private let defaults = UserDefaults.standard
@@ -81,6 +92,12 @@ final class AppState: ObservableObject {
     /// fire them on focus changes), e.g. immediately after re-enabling.
     private var lastAppSelected: String?
     private var lastKnownSourceID: String?
+    /// The current input source, kept in sync by `select` and the change observer, so
+    /// the tap's per-keystroke check never has to ask TIS.
+    private var cachedSourceID: String?
+    /// Registry entry ID -> device id, for identifying the sender of a tapped event.
+    private var senderIDs: [UInt64: String] = [:]
+    private let tap = KeyEventTap()
     /// Set when "Auto-disable on external switch" turned the app off (drives the "!" mark
     /// and the popover info box); cleared when the user re-enables. Persisted so a
     /// relaunch keeps the reason.
@@ -95,13 +112,19 @@ final class AppState: ObservableObject {
         isEnabled = defaults.object(forKey: Key.isEnabled) as? Bool ?? true
         autoDisableOnExternalSwitch = defaults.bool(forKey: Key.autoDisableOnExternalSwitch)
         autoDisabled = defaults.bool(forKey: Key.autoDisabled)
+        instantSwitching = defaults.bool(forKey: Key.instantSwitching)
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
         refreshInputSources()
         refreshMenuBarCode()
-        lastKnownSourceID = currentSourceID
+        cachedSourceID = currentSourceID
+        lastKnownSourceID = cachedSourceID
         observeInputSourceChanges()
         startMonitoring()
+        tap.decide = { [weak self] senderID in
+            MainActor.assumeIsolated { self?.decideTapKeyDown(senderID: senderID) ?? .pass }
+        }
+        updateTap()
     }
 
     // MARK: - Public API
@@ -119,6 +142,16 @@ final class AppState: ObservableObject {
         NSApplication.shared.terminate(nil)
     }
 
+    func openAccessibilitySettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+        NSWorkspace.shared.open(url)
+    }
+
+    /// Accessibility can be granted while we run, so retry the tap when the popover opens.
+    func retryTapIfNeeded() {
+        if tapFailed { updateTap() }
+    }
+
     func openInputMonitoringSettings() {
         // User-initiated is the only place we request access — it registers the app
         // in the Input Monitoring list (apps that never request don't appear there).
@@ -128,6 +161,21 @@ final class AppState: ObservableObject {
             let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
             NSWorkspace.shared.open(url)
         }
+    }
+
+    /// The tap only runs while instant switching is on and we may switch at all.
+    /// An active tap needs Accessibility on top of Input Monitoring; like Input
+    /// Monitoring we only ever ask for it from a user action (this setting's toggle).
+    private func updateTap() {
+        guard instantSwitching, hasPermission else {
+            tap.stop()
+            tapFailed = false
+            return
+        }
+        if !AXIsProcessTrusted() {
+            AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        }
+        tapFailed = !tap.start()
     }
 
     // MARK: - HID monitoring
@@ -182,9 +230,17 @@ final class AppState: ObservableObject {
     private func refreshDevices() {
         guard let manager, let set = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> else {
             devices = []
+            senderIDs = [:]
             return
         }
         devices = set.map(Self.keyboard(for:)).sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        // A tapped event identifies its device by registry entry ID.
+        senderIDs = set.reduce(into: [:]) { map, device in
+            var entryID: UInt64 = 0
+            guard IORegistryEntryGetRegistryEntryID(IOHIDDeviceGetService(device), &entryID) == KERN_SUCCESS
+            else { return }
+            map[entryID] = Self.keyboard(for: device).id
+        }
     }
 
     private func handle(_ value: IOHIDValue) {
@@ -193,9 +249,36 @@ final class AppState: ObservableObject {
         guard id != lastActiveID else { return }
         lastActiveID = id
         activeDeviceID = id
+        // With the tap running it switches instead — from inside the keystroke, so the
+        // first character is already in the new layout. Here we'd be a moment too late.
+        // Exception: taps receive nothing while a password field holds secure input,
+        // so fall back to switching here (late, as before) rather than not at all.
+        if !tap.isRunning || IsSecureEventInputEnabled() { applySwitch(for: id) }
+    }
 
-        guard isEnabled, let wanted = mapping[id], wanted != currentSourceID else { return }
+    /// Switches to the device's mapped source if it isn't already active.
+    /// Shared by the HID path and the event tap.
+    private func applySwitch(for deviceID: String) {
+        guard isEnabled, let wanted = mapping[deviceID], wanted != cachedSourceID else { return }
         select(wanted)
+    }
+
+    /// Called from inside the key press, so it must stay cheap: a dictionary lookup and
+    /// a string compare, touching TIS only when a switch actually happens.
+    private func decideTapKeyDown(senderID: UInt64?) -> KeyDecision {
+        guard let deviceID = senderID.flatMap({ senderIDs[$0] }) ?? lastActiveID else { return .pass }
+        if deviceID != lastActiveID {
+            lastActiveID = deviceID
+            activeDeviceID = deviceID
+        }
+        guard isEnabled, let wanted = mapping[deviceID], wanted != cachedSourceID,
+              let source = Self.inputSource(id: wanted) else { return .pass }
+
+        select(wanted)
+        // A plain layout can be applied to this very key press by re-translating it.
+        // An input method composes from key codes when the event is delivered, so the
+        // press has to wait until the switch has actually taken effect.
+        return Self.hasLayoutData(source) ? .rewrite(source) : .hold
     }
 
     nonisolated private static func keyboard(for device: IOHIDDevice) -> Keyboard {
@@ -226,11 +309,21 @@ final class AppState: ObservableObject {
         return Self.property(current, kTISPropertyInputSourceID) as? String
     }
 
+    private static func inputSource(id: String) -> TISInputSource? {
+        let filter = [kTISPropertyInputSourceID as String: id] as CFDictionary
+        let matches = TISCreateInputSourceList(filter, false)?.takeRetainedValue() as? [TISInputSource]
+        return matches?.first
+    }
+
+    /// A keyboard layout carries its key table; an input method (Korean, Japanese, …) doesn't.
+    private static func hasLayoutData(_ source: TISInputSource) -> Bool {
+        TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) != nil
+    }
+
     private func select(_ sourceID: String) {
-        let filter = [kTISPropertyInputSourceID as String: sourceID] as CFDictionary
-        guard let matches = TISCreateInputSourceList(filter, false)?.takeRetainedValue() as? [TISInputSource],
-              let source = matches.first else { return }
+        guard let source = Self.inputSource(id: sourceID) else { return }
         lastAppSelected = sourceID
+        cachedSourceID = sourceID
         TISSelectInputSource(source)
     }
 
@@ -427,7 +520,10 @@ final class AppState: ObservableObject {
                 // ("mapping wins") through the normal device-change path — no
                 // per-keystroke source checks needed. Optionally step aside
                 // entirely instead of correcting them.
-                if let current = self.currentSourceID, current != self.lastKnownSourceID {
+                self.cachedSourceID = self.currentSourceID
+                // The switch has landed — deliver anything the tap withheld for it.
+                self.tap.releaseHeldEvents()
+                if let current = self.cachedSourceID, current != self.lastKnownSourceID {
                     self.lastKnownSourceID = current
                     if current != self.lastAppSelected {
                         self.lastActiveID = nil
