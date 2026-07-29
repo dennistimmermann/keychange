@@ -265,9 +265,8 @@ struct ContentView: View {
             settingsToggle("Auto-disable on external switch", isOn: $state.autoDisableOnExternalSwitch,
                            hint: "When you change the input source yourself — via the Input menu or a keyboard shortcut — Keychange turns itself off instead of switching back while you type. Turn the master switch on again to resume automatic switching.")
             settingsToggle("Launch at login", isOn: $state.launchAtLogin)
-            settingsToggle("Check for updates automatically", isOn: $state.automaticallyChecksForUpdates)
 
-            settingsButton("Check for Updates…", action: state.checkForUpdates)
+            // The update controls live in the About panel, next to the version they act on.
             settingsButton("About Keychange") {
                 // LSUIElement: without activating, the panel opens behind everything.
                 NSApp.activate()

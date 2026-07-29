@@ -11,7 +11,9 @@ struct AboutView: View {
 
     private let upstreamURL = "https://github.com/ohueter/autokbisw"
 
-    @State private var hoveredLink: URL?
+    @EnvironmentObject private var state: AppState
+    /// Keyed by row label — rows are no longer all links.
+    @State private var hoveredRow: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,6 +47,7 @@ struct AboutView: View {
                 .padding(.horizontal, 20)
 
             VStack(spacing: 0) {
+                updateRows
                 linkRow("GitHub repository", detail: repoURL.host.map { $0 + repoURL.path } ?? "", url: repoURL)
                 linkRow("Keychange is free — buy me a coffee", detail: "", url: coffeeURL)
             }
@@ -56,7 +59,7 @@ struct AboutView: View {
 
             footer
         }
-        .frame(width: 420, height: 479) // +52 for the tip box
+        .frame(width: 420, height: 547) // +52 for the tip box, +68 for the two update rows
         .background(Color(nsColor: .windowBackgroundColor))
         .background(WindowChrome())
     }
@@ -78,30 +81,62 @@ struct AboutView: View {
         .foregroundStyle(Color(nsColor: .secondaryLabelColor))
     }
 
+    /// The version is right above, so this is where the update controls belong.
+    private var updateRows: some View {
+        VStack(spacing: 0) {
+            actionRow("Check for Updates…", action: state.checkForUpdates)
+            rowChrome("Check for updates automatically") {
+                HStack(spacing: 8) {
+                    Text("Check for updates automatically")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(nsColor: .labelColor))
+                    Spacer(minLength: 8)
+                    Toggle("Check for updates automatically",
+                           isOn: $state.automaticallyChecksForUpdates)
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .labelsHidden()
+                }
+            }
+        }
+    }
+
     /// Whole row is the hit target; the ↗ is a glyph, not a button.
     private func linkRow(_ label: String, detail: String, url: URL) -> some View {
-        Button {
+        actionRow(label, detail: detail.isEmpty ? "↗" : "\(detail) ↗") {
             NSWorkspace.shared.open(url)
-        } label: {
-            HStack(spacing: 8) {
-                Text(label)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(nsColor: .labelColor))
-                Spacer(minLength: 8)
-                Text(detail.isEmpty ? "↗" : "\(detail) ↗")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-                    .accessibilityHidden(true)
+        }
+        .accessibilityLabel("\(label), opens \(url.host ?? url.absoluteString)")
+    }
+
+    private func actionRow(_ label: String, detail: String = "", action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            rowChrome(label) {
+                HStack(spacing: 8) {
+                    Text(label)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(nsColor: .labelColor))
+                    Spacer(minLength: 8)
+                    Text(detail)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                        .accessibilityHidden(true)
+                }
             }
-            .padding(.vertical, 9)
-            .padding(.horizontal, 12)
-            .background(hoveredLink == url ? Color(nsColor: .quaternaryLabelColor).opacity(0.5) : .clear,
-                        in: RoundedRectangle(cornerRadius: 8))
-            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
-        .onHover { hoveredLink = $0 ? url : nil }
-        .accessibilityLabel("\(label), opens \(url.host ?? url.absoluteString)")
+    }
+
+    /// Row metrics from design 13b: 9/12 padding, 8pt radius, hover fill.
+    private func rowChrome<Content: View>(_ label: String,
+                                          @ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.vertical, 9)
+            .padding(.horizontal, 12)
+            .background(hoveredRow == label ? Color(nsColor: .quaternaryLabelColor).opacity(0.5) : .clear,
+                        in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .onHover { hoveredRow = $0 ? label : nil }
     }
 
     /// The ⌥ reveal is otherwise undiscoverable — and it is the only way back

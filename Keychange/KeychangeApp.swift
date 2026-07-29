@@ -17,7 +17,7 @@ struct KeychangeApp: App {
         .menuBarExtraStyle(.window)
 
         Window("About Keychange", id: AboutWindow.id) {
-            AboutView()
+            AboutView().environmentObject(state)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
