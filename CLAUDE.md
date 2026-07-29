@@ -5,11 +5,12 @@
 Tagging `vX.Y.Z` and pushing the tag is the whole release process — `.github/workflows/release.yml`
 archives, signs, notarizes, staples, publishes the GitHub release and uploads the Sparkle appcast.
 
-**Every tagged release needs release notes.** The appcast's `<description>` is the release body
-converted to HTML, and that body is what users read in Sparkle's "A new version is available" panel
-before deciding to install. A release with an empty body ships an empty update panel.
+**Every tagged release needs release notes.** `RELEASE_NOTES.md` holds the notes for the release
+being cut — rewrite it in the same commit that bumps to the tag, describing that version only. The
+workflow passes it to `gh release create --notes-file`, and the appcast's `<description>` is that
+body converted to HTML, so it is literally what users read in Sparkle's "A new version is available"
+panel before deciding to install.
 
-The workflow creates the release with `--generate-notes`, which builds the body from commits and PRs
-since the previous tag — so the notes are only as good as the commit subjects. Check the generated
-body after tagging, and edit the release (or write the notes by hand) if it reads poorly. Never tag
-a release whose notes you have not looked at.
+Write it for the person deciding whether to install, not for the person who wrote the code: what
+changed for them, in their words. Not a list of commit subjects — that is why the workflow no longer
+uses `--generate-notes`. Never tag a release without updating the file first.
