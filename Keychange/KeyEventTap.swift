@@ -1,7 +1,5 @@
 import Carbon
 import CoreGraphics
-import IOKit
-import IOKit.hid
 
 /// What the tap should do with a key press.
 enum KeyDecision {

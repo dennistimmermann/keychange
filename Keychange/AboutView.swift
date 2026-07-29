@@ -12,7 +12,7 @@ struct AboutView: View {
     private let upstreamURL = "https://github.com/ohueter/autokbisw"
 
     @EnvironmentObject private var state: AppState
-    /// Keyed by row label — rows are no longer all links.
+    /// Keyed by row label — not every row is a link, so a URL won't do as the key.
     @State private var hoveredRow: String?
 
     var body: some View {
@@ -121,7 +121,7 @@ struct AboutView: View {
             .onHover { hoveredRow = $0 ? label : nil }
     }
 
-    /// The ⌥ reveal is otherwise undiscoverable — and it is the only way back
+    /// Nothing else points at the reveal's contents — and it is the only way back
     /// once a device has been set to Hidden.
     private var tip: some View {
         Text("Hold ⌥ while opening Keychange, or click the cog, to reveal the settings, hidden devices and device IDs.")

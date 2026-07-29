@@ -6,14 +6,14 @@ import Sparkle
 
 // MARK: - Models
 
-struct Keyboard: Identifiable, Equatable {
+struct Keyboard: Identifiable {
     let id: String // "\(name)-\(vendorID)-\(productID)"
     let name: String
     let vendorID: Int
     let productID: Int
 }
 
-struct InputSource: Identifiable, Equatable {
+struct InputSource: Identifiable {
     let id: String // kTISPropertyInputSourceID
     let name: String // localized name
 }
@@ -22,7 +22,7 @@ struct InputSource: Identifiable, Equatable {
 /// `hidden` keeps a device out of the list — mice expose keyboard interfaces too
 /// (programmable buttons, media keys) and are indistinguishable from real keyboards
 /// by their HID descriptors, so the only reliable filter is the user pointing at them.
-struct DeviceSetting: Equatable {
+struct DeviceSetting {
     var source: String? = nil
     var hidden = false
 }
@@ -112,8 +112,8 @@ final class AppState: ObservableObject {
             else { try? SMAppService.mainApp.unregister() }
         }
     }
-    /// Sparkle. Updates are validated against the Developer ID signature — there is no
-    /// EdDSA key — so the release build must stay signed and notarized.
+    /// Sparkle. No EdDSA key (see UpdaterConfig), so the release build must stay
+    /// signed and notarized.
     let updater: SPUStandardUpdaterController
     /// Held because `SPUStandardUpdaterController` only keeps a weak reference.
     private let updaterDelegate: UpdaterConfig
@@ -180,7 +180,6 @@ final class AppState: ObservableObject {
         autoDisabled = defaults.bool(forKey: Key.autoDisabled)
         instantSwitching = defaults.bool(forKey: Key.instantSwitching)
         launchAtLogin = SMAppService.mainApp.status == .enabled
-        automaticallyChecksForUpdates = updater.updater.automaticallyChecksForUpdates
 
         refreshInputSources()
         refreshMenuBarCode()
@@ -270,10 +269,11 @@ final class AppState: ObservableObject {
     // MARK: - HID monitoring
 
     private func startMonitoring() {
-        // Input Monitoring is a TCC prompt, not an entitlement. We never request it —
-        // the empty state's "Open Privacy & Security…" link is the only path, and even
-        // opening the HID manager would trigger the system prompt, so skip all HID setup
-        // until granted. NOTE: a freshly granted permission only takes effect after relaunch.
+        // Input Monitoring is a TCC prompt, not an entitlement. It is never requested
+        // from here — the empty state's "Allow Input Monitoring…" link is the only path
+        // (see openInputMonitoringSettings) — and even opening the HID manager would
+        // trigger the system prompt, so skip all HID setup until granted.
+        // NOTE: a freshly granted permission only takes effect after relaunch.
         hasPermission = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted
         guard hasPermission else { return }
 
@@ -461,7 +461,7 @@ final class AppState: ObservableObject {
         }
         let languages = Self.property(current, kTISPropertyInputSourceLanguages) as? [String] ?? []
         let oldCode = menuBarCode
-        let newCode = Self.badgeText(for: languages.first)
+        let newCode = languages.first?.uppercased() ?? "—"
 
         // Input methods (e.g. Korean: method + input mode) fire the change
         // notification more than once per switch. menuBarCode is already the
@@ -473,14 +473,12 @@ final class AppState: ObservableObject {
         menuBarCode = newCode
 
         if iconShowsDisabled, hadIcon {
-            let code = menuBarCode
             let showMark = autoDisabled
-            animateIcon { Self.enableFrame(t: 1 - $0, code: code, autoDisabledMark: showMark) }
-        } else if hadIcon, oldCode != menuBarCode, oldCode != "—" {
-            let newCode = menuBarCode
+            animateIcon { Self.enableFrame(t: 1 - $0, code: newCode, autoDisabledMark: showMark) }
+        } else if hadIcon, oldCode != newCode, oldCode != "—" {
             animateIcon { Self.swapFrame(t: $0, from: oldCode, to: newCode) }
         } else {
-            menuBarIcon = Self.badge(menuBarCode)
+            menuBarIcon = Self.badge(newCode)
         }
         iconShowsDisabled = false
     }
@@ -496,10 +494,6 @@ final class AppState: ObservableObject {
                 try? await Task.sleep(nanoseconds: 300_000_000 / UInt64(frames))
             }
         }
-    }
-
-    private static func badgeText(for language: String?) -> String {
-        language?.uppercased() ?? "—"
     }
 
     // MARK: - Menu bar mark

@@ -24,7 +24,7 @@ struct ContentView: View {
     /// The picker's tag for "Hidden". Not a source ID (those are reverse-DNS).
     private static let hiddenTag = "hidden"
 
-    /// ⌥ shows everything, which is the way back for a device hidden by mistake.
+    /// The reveal shows everything, which is the way back for a device hidden by mistake.
     private var visibleDevices: [Keyboard] {
         revealed ? state.devices : state.devices.filter { !hiddenSnapshot.contains($0.id) }
     }
@@ -237,8 +237,7 @@ struct ContentView: View {
 
     /// `0x05AC`-style, uppercase, zero padded to four digits.
     private func hex4(_ value: Int) -> String {
-        let digits = String(value, radix: 16, uppercase: true)
-        return "0x" + String(repeating: "0", count: max(0, 4 - digits.count)) + digits
+        String(format: "0x%04lX", value)
     }
 
     // MARK: - Empty state
