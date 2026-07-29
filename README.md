@@ -80,6 +80,12 @@ binary that contains no trace of them; the app then identifies devices via the H
 Tagging a commit `vX.Y.Z` and pushing the tag builds that version and attaches it to a GitHub
 release.
 
+## Support
+
+Keychange is free and stays free. If it saved you some friction, you can leave a tip on
+[Ko-fi](https://ko-fi.com/tmrmn) or sponsor me on
+[GitHub](https://github.com/sponsors/dennistimmermann).
+
 ## Credits
 
 Inspired by [autokbisw](https://github.com/ohueter/autokbisw) by @ohueter, a command-line tool that
