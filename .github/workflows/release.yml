@@ -44,18 +44,44 @@ jobs:
           rm cert.p12
           security find-identity -v -p codesigning build.keychain
 
-      - name: Build (version from tag)
+      # `archive` + `exportArchive`, not `build`: it signs nested code (Sparkle.framework
+      # embeds Autoupdate.app and Updater.app) inside-out with the hardened runtime and a
+      # secure timestamp, both of which the notary service requires.
+      - name: Archive (version from tag)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          # Sparkle picks the newer update by CFBundleVersion, so derive it from the tag
+          # instead of the run number: 0.1.2 -> 102, 1.2.3 -> 10203, always monotonic.
+          BUILD=$(echo "$VERSION" | awk -F. '{print $1*10000 + $2*100 + $3}')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BUILD=$BUILD" >> "$GITHUB_ENV"
           xcodebuild -project Keychange.xcodeproj -scheme Keychange -configuration Release \
-            -derivedDataPath build \
+            -archivePath build/Keychange.xcarchive \
             MARKETING_VERSION="$VERSION" \
-            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CURRENT_PROJECT_VERSION="$BUILD" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             DEVELOPMENT_TEAM=N3BEDTWSK4 \
             OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
-            build
+            archive
+
+      - name: Export signed app
+        run: |
+          cat > ExportOptions.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>developer-id</string>
+            <key>teamID</key><string>N3BEDTWSK4</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Developer ID Application</string>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath build/Keychange.xcarchive \
+            -exportOptionsPlist ExportOptions.plist -exportPath export
+          codesign -dvvv export/Keychange.app
 
       # The notarization ticket staples into the .app, so the release zip has to
       # be built after stapling — hence zipping twice.
@@ -64,13 +90,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          APP=build/Build/Products/Release/Keychange.app
-          # `xcodebuild build` (unlike `archive`) can drop the secure timestamp the
-          # notary service requires. The app has no nested code, so one re-sign with
-          # explicit flags is enough to guarantee what gets submitted.
-          codesign --force --timestamp --options runtime \
-            --sign "Developer ID Application" "$APP"
-          codesign -dvvv "$APP"
+          APP=export/Keychange.app
           ditto -c -k --keepParent "$APP" notarize.zip
           # `submit --wait` exits non-zero when the result is Invalid, so capture the
           # id first and always print the notary log — it names the rejection reason.
@@ -85,7 +105,37 @@ jobs:
           ditto -c -k --keepParent "$APP" Keychange.zip
           spctl -a -vvv -t exec "$APP"
 
+      # Sparkle's feed. `releases/latest/download/appcast.xml` always redirects to the
+      # newest release's copy, so the feed is a release asset and never needs a commit
+      # back to the repo. One <item> is a valid appcast; each release replaces the feed.
+      - name: Write appcast
+        run: |
+          # ponytail: no sparkle:edSignature — updates are validated against the
+          # Developer ID signature instead. Add SUPublicEDKey + sign_update if updates
+          # ever have to install with elevated privileges (Sparkle pre-validates those,
+          # and pre-validation needs an EdDSA key).
+          cat > appcast.xml <<XML
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>Keychange</title>
+              <item>
+                <title>$VERSION</title>
+                <pubDate>$(date "+%a, %d %b %Y %H:%M:%S %z")</pubDate>
+                <sparkle:version>$BUILD</sparkle:version>
+                <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+                <sparkle:releaseNotesLink>https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME</sparkle:releaseNotesLink>
+                <enclosure url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/Keychange.zip"
+                           length="$(stat -f%z Keychange.zip)"
+                           type="application/octet-stream"/>
+              </item>
+            </channel>
+          </rss>
+          XML
+          cat appcast.xml
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" Keychange.zip --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" Keychange.zip appcast.xml --generate-notes

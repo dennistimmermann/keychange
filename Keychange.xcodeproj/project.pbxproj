@@ -6,12 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		9554A109301A10D500A197AB /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 9554A108301A10D500A197AB /* Sparkle */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		1A00000000000000000000A1 /* Keychange.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Keychange.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A00000000000000000000A1 /* Keychange.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = Keychange.app; path = "Keychange Dev.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		1A00000000000000000000B1 /* Keychange */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Keychange; sourceTree = "<group>"; };
+		1A00000000000000000000B1 /* Keychange */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Keychange;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -19,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9554A109301A10D500A197AB /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -61,6 +70,7 @@
 			);
 			name = Keychange;
 			packageProductDependencies = (
+				9554A108301A10D500A197AB /* Sparkle */,
 			);
 			productName = Keychange;
 			productReference = 1A00000000000000000000A1 /* Keychange.app */;
@@ -90,6 +100,9 @@
 			);
 			mainGroup = 1A00000000000000000000D1;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9554A107301A10D500A197AB /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 1A00000000000000000000D2 /* Products */;
 			projectDirPath = "";
@@ -168,10 +181,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				DEVELOPMENT_TEAM = N3BEDTWSK4;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N3BEDTWSK4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Keychange Dev";
@@ -194,10 +207,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				DEVELOPMENT_TEAM = N3BEDTWSK4;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N3BEDTWSK4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -236,6 +249,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9554A107301A10D500A197AB /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9554A108301A10D500A197AB /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9554A107301A10D500A197AB /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1A00000000000000000000AA /* Project object */;
 }

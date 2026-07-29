@@ -2,6 +2,7 @@ import SwiftUI
 import IOKit.hid
 import Carbon
 import ServiceManagement
+import Sparkle
 
 // MARK: - Models
 
@@ -24,6 +25,29 @@ struct InputSource: Identifiable, Equatable {
 struct DeviceSetting: Equatable {
     var source: String? = nil
     var hidden = false
+}
+
+/// Sparkle normally reads `SUFeedURL` from Info.plist, but the project generates its
+/// plist from build settings and Xcode only passes through the keys it knows — so the
+/// feed lives here instead.
+///
+/// ponytail: no EdDSA key, updates are validated against the Developer ID signature
+/// (Sparkle accepts either). That check happens after unarchiving; an install that needs
+/// elevated privileges is validated *before* unarchiving and would need `SUPublicEDKey`
+/// plus a `sign_update` step in the release workflow.
+private final class UpdaterConfig: NSObject, SPUUpdaterDelegate {
+    func feedURLString(for updater: SPUUpdater) -> String? {
+        // No feed for the dev bundle: its version is 1.0 (build 1), so every release
+        // looks newer and Sparkle would offer to replace Keychange Dev with Keychange.
+        #if DEBUG
+        nil
+        #else
+        "https://github.com/dennistimmermann/keychange/releases/latest/download/appcast.xml"
+        #endif
+    }
+
+    /// The popover has the toggle; no need for Sparkle's permission modal.
+    func updaterShouldPromptForPermissionToCheck(forUpdates updater: SPUUpdater) -> Bool { false }
 }
 
 // MARK: - App state / engine
@@ -89,6 +113,15 @@ final class AppState: ObservableObject {
             else { try? SMAppService.mainApp.unregister() }
         }
     }
+    /// Sparkle. Updates are validated against the Developer ID signature — there is no
+    /// EdDSA key — so the release build must stay signed and notarized.
+    let updater: SPUStandardUpdaterController
+    /// Held because `SPUStandardUpdaterController` only keeps a weak reference.
+    private let updaterDelegate: UpdaterConfig
+    /// Sparkle persists this itself under `SUEnableAutomaticChecks`, so it needs no `Key`.
+    @Published var automaticallyChecksForUpdates: Bool {
+        didSet { updater.updater.automaticallyChecksForUpdates = automaticallyChecksForUpdates }
+    }
 
     private enum Key {
         static let settings = "deviceSettings"
@@ -126,6 +159,19 @@ final class AppState: ObservableObject {
     private var iconShowsDisabled = false
 
     init() {
+        // Sparkle's SUEnableAutomaticChecks defaults to off, and it would otherwise ask
+        // for permission with a modal on the second launch. Opt in through the
+        // registration domain instead: the popover's toggle writes the user domain,
+        // which wins from then on.
+        UserDefaults.standard.register(defaults: ["SUEnableAutomaticChecks": true])
+        let config = UpdaterConfig()
+        let controller = SPUStandardUpdaterController(startingUpdater: true,
+                                                      updaterDelegate: config,
+                                                      userDriverDelegate: nil)
+        updaterDelegate = config
+        updater = controller
+        automaticallyChecksForUpdates = controller.updater.automaticallyChecksForUpdates
+
         let stored = defaults.dictionary(forKey: Key.settings) as? [String: [String: Any]] ?? [:]
         settings = stored.mapValues {
             DeviceSetting(source: $0["source"] as? String, hidden: $0["hidden"] as? Bool ?? false)
@@ -135,6 +181,7 @@ final class AppState: ObservableObject {
         autoDisabled = defaults.bool(forKey: Key.autoDisabled)
         instantSwitching = defaults.bool(forKey: Key.instantSwitching)
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        automaticallyChecksForUpdates = updater.updater.automaticallyChecksForUpdates
 
         refreshInputSources()
         refreshMenuBarCode()
@@ -171,6 +218,13 @@ final class AppState: ObservableObject {
 
     func quit() {
         NSApplication.shared.terminate(nil)
+    }
+
+    /// Without activating, Sparkle's panels open behind everything — same LSUIElement
+    /// problem the About window has.
+    func checkForUpdates() {
+        NSApp.activate()
+        updater.updater.checkForUpdates()
     }
 
     func openAccessibilitySettings() {

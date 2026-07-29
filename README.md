@@ -19,8 +19,11 @@ hands. Keychange is a small menu bar app that does it for you.
 Download the latest build from [Releases](../../releases), move `Keychange.app` to
 `/Applications`, and launch it.
 
-Builds are not notarized yet, so the first launch needs a right-click → **Open** (or
-System Settings → Privacy & Security → **Open Anyway**).
+Builds are signed and notarized, so it opens with a double-click.
+
+From then on Keychange updates itself: it checks GitHub for a new release, and offers to install
+and relaunch. The check is the only network request the app makes; turn it off with **Check for
+updates automatically** in the settings, or run it by hand from **Check for Updates…**.
 
 ## Permissions
 
