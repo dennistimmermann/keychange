@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Keychange">
+  <title>Keychange app mark</title>
+  <defs>
+    <linearGradient id="kc-cap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"></stop>
+      <stop offset="0.55" stop-color="#F7F7F9"></stop>
+      <stop offset="1" stop-color="#E9E9EC"></stop>
+    </linearGradient>
+    <linearGradient id="kc-edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"></stop>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.2"></stop>
+      <stop offset="1" stop-color="#14121E" stop-opacity="0.10"></stop>
+    </linearGradient>
+    <clipPath id="kc-cap-clip">
+      <rect x="61" y="55" width="902" height="902" rx="207"></rect>
+    </clipPath>
+    <filter id="kc-lift" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#14121E" flood-opacity="0.10"></feDropShadow>
+      <feDropShadow dx="0" dy="42" stdDeviation="48" flood-color="#14121E" flood-opacity="0.16"></feDropShadow>
+    </filter>
+  </defs>
+  <g data-role="keycap" filter="url(#kc-lift)">
+    <rect x="61" y="55" width="902" height="902" rx="207" fill="url(#kc-cap)"></rect>
+    <g clip-path="url(#kc-cap-clip)">
+      <rect x="61" y="55" width="902" height="902" rx="207" fill="none" stroke="url(#kc-edge)" stroke-width="14"></rect>
+    </g>
+  </g>
+  <path data-role="glyph" d="M631.43 566.45L580.06 589.31L580.06 673.29L557.97 673.29L557.97 599.32L466.03 640.42L466.03 727.23L443.94 727.23L443.94 650.43L392.57 673.29L392.57 630.14L443.94 607.29L443.94 480.41L392.57 503.27L392.57 460.12L443.94 437.26L443.94 353.28L466.03 353.28L466.03 427.24L557.97 386.15L557.97 296.77L580.06 296.77L580.06 376.13L631.43 353.28L631.43 396.42L580.06 419.28L580.06 546.16L631.43 523.30ZM557.97 556.18L557.97 429.30L466.03 470.39L466.03 597.27Z" fill="#1D1D1F"></path>
+</svg>

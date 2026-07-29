@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keychange — one layout per keyboard</title>
+<meta name="description" content="A macOS menu bar app that switches the system input source per physical keyboard. Free, MIT licensed.">
+<link rel="icon" href="keychange-icon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="128x128" type="image/png">
+<link rel="apple-touch-icon" href="favicon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dennistimmermann.github.io/keychange/">
+<meta property="og:site_name" content="Keychange">
+<meta property="og:title" content="Keychange — one layout per keyboard">
+<meta property="og:description" content="macOS switches input sources per app, never per keyboard. Keychange assigns one to each of your keyboards and switches as you move between them.">
+<meta property="og:image" content="https://dennistimmermann.github.io/keychange/screenshot.png">
+<meta property="og:image:alt" content="The Keychange menu bar popover listing three keyboards, each with its own input source.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+
+  <nav>
+    <a class="wordmark" href="#top">
+      <img src="keychange-icon.svg" alt="" width="26" height="26">
+      <span>Keychange</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="https://github.com/dennistimmermann/keychange">GitHub</a>
+      <a class="button small" href="https://github.com/dennistimmermann/keychange/releases">Download</a>
+    </div>
+  </nav>
+
+  <header id="top" class="hero">
+    <div class="hero-copy">
+      <img class="hero-mark" src="keychange-icon.svg" alt="Keychange" width="96" height="96">
+      <h1>One layout per keyboard.</h1>
+      <p>Assign an input source to each of your keyboards. Keychange switches the moment your
+         hands do.</p>
+      <div class="cta">
+        <a class="button" href="https://github.com/dennistimmermann/keychange/releases">Download for macOS</a>
+        <p class="cta-note">Free · MIT · macOS 14+<br>Apple silicon</p>
+      </div>
+    </div>
+
+    <div class="hero-shot">
+      <!-- Reproduction of the shipped panel; see Keychange/ContentView.swift -->
+      <div class="menubar">
+        <span class="mb-badge" aria-label="Keychange menu bar icon showing DE"><i></i><b>DE</b></span>
+        <span class="mb-dim">100%</span>
+        <span class="mb-dim">Mon 09:41</span>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">KEYCHANGE</span>
+          <span class="panel-count">3 connected</span>
+          <span class="switch on"></span>
+        </div>
+
+        <div class="row">
+          <span class="rail"></span>
+          <span class="device">Apple Internal Keyboard / Trackpad</span>
+          <span class="select">ABC <i>⌄</i></span>
+        </div>
+        <div class="row active">
+          <span class="rail"></span>
+          <span class="device">Keychron K2 Version 2</span>
+          <span class="select">German <i>⌄</i></span>
+        </div>
+        <div class="row">
+          <span class="rail"></span>
+          <span class="device">HHKB Professional HYBRID</span>
+          <span class="select">Don’t switch <i>⌄</i></span>
+        </div>
+
+        <hr>
+
+        <div class="setting"><span>Intercept keystrokes <b>ⓘ</b></span><span class="switch"></span></div>
+        <div class="setting"><span>Auto-disable on external switch <b>ⓘ</b></span><span class="switch"></span></div>
+        <div class="setting"><span>Launch at login</span><span class="switch"></span></div>
+        <div class="setting plain"><span>About Keychange</span></div>
+        <div class="setting plain"><span>Quit</span></div>
+      </div>
+
+    </div>
+  </header>
+
+  <section id="features" class="cards">
+    <article>
+      <span class="eyebrow">01</span>
+      <h2>One layout per keyboard</h2>
+      <p>macOS can switch input sources per app or by shortcut, but never per keyboard. Keychange
+         adds the missing option: assign a layout to each keyboard, and the system follows whichever
+         one you’re typing on.</p>
+    </article>
+    <article>
+      <span class="eyebrow">02</span>
+      <h2>Switching becomes automatic</h2>
+      <p>After launch, Keychange changes the input source for you the moment you go from one
+         keyboard to another. Set it to start at login and it’s always there.</p>
+    </article>
+    <article>
+      <span class="eyebrow">03</span>
+      <h2>Nothing is recorded</h2>
+      <p>Keychange has to see which keyboard you’re using, but it keeps nothing: what you type is
+         never stored or sent anywhere. The code is public if you want to check.</p>
+    </article>
+  </section>
+
+  <footer>
+    <span>© 2026 Dennis Timmermann · MIT · Inspired by
+      <a href="https://github.com/ohueter/autokbisw">autokbisw</a> by @ohueter</span>
+  </footer>
+
+</div>
+</body>
+</html>
