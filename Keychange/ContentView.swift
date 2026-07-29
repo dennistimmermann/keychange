@@ -51,6 +51,10 @@ struct ContentView: View {
                 accessibilityPrompt
             } else {
                 deviceList
+                    // The cog used to sit in a row below the list and carried the bottom
+                    // margin with it. The prompts have their own generous padding and the
+                    // settings rows bring theirs, so only the bare list needs this back.
+                    .padding(.bottom, revealed ? 0 : 6)
             }
 
             if revealed {
