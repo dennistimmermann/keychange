@@ -37,6 +37,9 @@ struct AboutView: View {
             metaRow
                 .padding(.top, 14)
 
+            tip
+                .padding(.top, 14)
+
             Divider()
                 .padding(.top, 22)
                 .padding(.horizontal, 20)
@@ -53,7 +56,7 @@ struct AboutView: View {
 
             footer
         }
-        .frame(width: 420, height: 427)
+        .frame(width: 420, height: 479) // +52 for the tip box
         .background(Color(nsColor: .windowBackgroundColor))
         .background(WindowChrome())
     }
@@ -99,6 +102,20 @@ struct AboutView: View {
         .buttonStyle(.plain)
         .onHover { hoveredLink = $0 ? url : nil }
         .accessibilityLabel("\(label), opens \(url.host ?? url.absoluteString)")
+    }
+
+    /// The ⌥ reveal is otherwise undiscoverable — and it is the only way back
+    /// once a device has been set to Hidden.
+    private var tip: some View {
+        Text("Hold ⌥ while opening Keychange to reveal hidden devices and device IDs.")
+            .font(.system(size: 11))
+            .foregroundStyle(Color(nsColor: .labelColor))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(8)
+            // Same info box as the popover's notice (ContentView.infoBox).
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+            .padding(.horizontal, 20)
     }
 
     private var footer: some View {

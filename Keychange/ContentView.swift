@@ -14,6 +14,18 @@ struct ContentView: View {
     /// like the system's own applets (Wi-Fi, Battery). Sampled when the panel opens.
     @State private var optionHeld = false
 
+    /// Which devices were hidden when this open began. Hiding one leaves it on screen
+    /// until the next open — a row must not vanish under the picker you just used.
+    @State private var hiddenSnapshot: Set<String> = []
+
+    /// The picker's tag for "Hidden". Not a source ID (those are reverse-DNS).
+    private static let hiddenTag = "hidden"
+
+    /// ⌥ shows everything, which is the way back for a device hidden by mistake.
+    private var visibleDevices: [Keyboard] {
+        optionHeld ? state.devices : state.devices.filter { !hiddenSnapshot.contains($0.id) }
+    }
+
     /// Empty state doubles as the "no permission" state: in both cases there is
     /// nothing to list, and the call to action is the same.
     private var showsEmptyState: Bool {
@@ -49,16 +61,20 @@ struct ContentView: View {
         // MenuBarExtra(.window) proposes the previous (larger) height after the
         // settings foldout closes; without this the device list stretches to fill it.
         .fixedSize(horizontal: false, vertical: true)
-        .onAppear {
-            optionHeld = NSEvent.modifierFlags.contains(.option)
-            state.retryTapIfNeeded()
-        }
+        .onAppear(perform: sampleOpenState)
         // onAppear alone misses reopens when SwiftUI keeps the view alive, so also
         // re-sample whenever the panel becomes the key window.
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-            optionHeld = NSEvent.modifierFlags.contains(.option)
-            state.retryTapIfNeeded()
+            sampleOpenState()
         }
+    }
+
+    /// What the panel decides once per open: the ⌥ reveal and which rows are hidden.
+    private func sampleOpenState() {
+        optionHeld = NSEvent.modifierFlags.contains(.option)
+        hiddenSnapshot = Set(state.settings.filter(\.value.hidden).keys)
+        state.refreshDevices()
+        state.retryTapIfNeeded()
     }
 
     /// Centered symbol + title block, used for anything the app can't do yet.
@@ -116,7 +132,8 @@ struct ContentView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text("KEYCHANGE")
+            // Display name, so the Debug build reads "KEYCHANGE DEV".
+            Text((Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Keychange").uppercased())
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.66) // 0.06em at 11pt
                 .foregroundStyle(.secondary)
@@ -141,7 +158,7 @@ struct ContentView: View {
 
     private var deviceList: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(state.devices) { device in
+            ForEach(visibleDevices) { device in
                 deviceRow(device)
             }
         }
@@ -149,6 +166,9 @@ struct ContentView: View {
 
     private func deviceRow(_ device: Keyboard) -> some View {
         let isActive = device.id == state.activeDeviceID
+        // Live, not the snapshot: the row dims the moment you hide it, and stays dim
+        // when ⌥ brings it back.
+        let isHidden = state.isHidden(device.id)
 
         // Rows are not click targets — the active device comes from real key events.
         return HStack(spacing: 0) {
@@ -161,7 +181,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.name)
                     .font(.system(size: 13))
-                    .foregroundStyle(Color(nsColor: .labelColor))
+                    .foregroundStyle(Color(nsColor: isHidden ? .secondaryLabelColor : .labelColor))
                     .lineLimit(1)
                     .truncationMode(.tail)
 
@@ -174,12 +194,15 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Picker("Input source", selection: mappingBinding(for: device)) {
+            Picker("Input source", selection: settingBinding(for: device)) {
                 Text("Don't switch").tag(String?.none)
                 Divider()
                 ForEach(state.inputSources) { source in
                     Text(source.name).tag(Optional(source.id))
                 }
+                Divider()
+                // Reads as the selected value, like "Don't switch" — not as a verb.
+                Text("Hidden").tag(Optional(Self.hiddenTag))
             }
             .pickerStyle(.menu)
             .labelsHidden()
@@ -191,17 +214,21 @@ struct ContentView: View {
         .padding(.trailing, 9)
     }
 
-    /// Reads the stored mapping, writes through `AppState`. `nil` means "Don't switch".
+    /// Reads the stored setting, writes through `AppState`. `nil` means "Don't switch".
     /// A mapping whose source is no longer enabled shows as "Don't switch" (instead of an
     /// invalid picker selection) but stays stored, so it revives when the source returns.
-    private func mappingBinding(for device: Keyboard) -> Binding<String?> {
+    private func settingBinding(for device: Keyboard) -> Binding<String?> {
         Binding(
             get: {
-                guard let id = state.mapping[device.id],
+                if state.isHidden(device.id) { return Self.hiddenTag }
+                guard let id = state.settings[device.id]?.source,
                       state.inputSources.contains(where: { $0.id == id }) else { return nil }
                 return id
             },
-            set: { state.setMapping(deviceID: device.id, sourceID: $0) }
+            set: {
+                if $0 == Self.hiddenTag { state.setHidden(deviceID: device.id) }
+                else { state.setMapping(deviceID: device.id, sourceID: $0) }
+            }
         )
     }
 

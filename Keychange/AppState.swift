@@ -17,6 +17,15 @@ struct InputSource: Identifiable, Equatable {
     let name: String // localized name
 }
 
+/// What the user chose for one device. `source == nil` means "Don't switch".
+/// `hidden` keeps a device out of the list — mice expose keyboard interfaces too
+/// (programmable buttons, media keys) and are indistinguishable from real keyboards
+/// by their HID descriptors, so the only reliable filter is the user pointing at them.
+struct DeviceSetting: Equatable {
+    var source: String? = nil
+    var hidden = false
+}
+
 // MARK: - App state / engine
 
 /// Everything the app does: watch HID keyboards, remember which input source belongs
@@ -34,9 +43,18 @@ final class AppState: ObservableObject {
     /// The Keychange mark with the current source's code; nil → show menuBarCode text.
     @Published var menuBarIcon: NSImage? = nil
 
-    /// deviceID -> inputSourceID. A missing key means "Don't switch" for that device.
-    @Published var mapping: [String: String] = [:] {
-        didSet { defaults.set(mapping, forKey: Key.mapping) }
+    /// deviceID -> settings. A missing key means "Don't switch" for that device.
+    /// Persisted as a nested dictionary — UserDefaults is plist-backed and String/Bool/
+    /// Dictionary are native plist types, so this needs no encoder.
+    @Published var settings: [String: DeviceSetting] = [:] {
+        didSet {
+            defaults.set(settings.mapValues { setting -> [String: Any] in
+                var raw: [String: Any] = ["hidden": setting.hidden]
+                // Assigned only when set: a nil in there is not a plist value.
+                if let source = setting.source { raw["source"] = source }
+                return raw
+            }, forKey: Key.settings)
+        }
     }
 
     // Persisted settings. @Published + didSet, not @AppStorage (which misbehaves inside ObservableObject).
@@ -73,7 +91,7 @@ final class AppState: ObservableObject {
     }
 
     private enum Key {
-        static let mapping = "mapping"
+        static let settings = "deviceSettings"
         static let isEnabled = "isEnabled"
         static let autoDisableOnExternalSwitch = "autoDisableOnExternalSwitch"
         static let autoDisabled = "autoDisabled"
@@ -108,7 +126,10 @@ final class AppState: ObservableObject {
     private var iconShowsDisabled = false
 
     init() {
-        mapping = defaults.dictionary(forKey: Key.mapping) as? [String: String] ?? [:]
+        let stored = defaults.dictionary(forKey: Key.settings) as? [String: [String: Any]] ?? [:]
+        settings = stored.mapValues {
+            DeviceSetting(source: $0["source"] as? String, hidden: $0["hidden"] as? Bool ?? false)
+        }
         isEnabled = defaults.object(forKey: Key.isEnabled) as? Bool ?? true
         autoDisableOnExternalSwitch = defaults.bool(forKey: Key.autoDisableOnExternalSwitch)
         autoDisabled = defaults.bool(forKey: Key.autoDisabled)
@@ -129,13 +150,23 @@ final class AppState: ObservableObject {
 
     // MARK: - Public API
 
-    /// `sourceID == nil` means Default (never switch for this device).
+    /// `sourceID == nil` means Default (never switch for this device). Also unhides.
     /// Persists immediately and applies right away if this is the device being typed on.
     func setMapping(deviceID: String, sourceID: String?) {
-        mapping[deviceID] = sourceID
+        settings[deviceID] = DeviceSetting(source: sourceID)
         if isEnabled, deviceID == activeDeviceID, let sourceID {
             select(sourceID)
         }
+    }
+
+    /// Takes a device out of the list. Clearing the source is what makes a hidden device
+    /// inert: every switching path bails on the missing source, so no extra guard is needed.
+    func setHidden(deviceID: String) {
+        settings[deviceID] = DeviceSetting(hidden: true)
+    }
+
+    func isHidden(_ deviceID: String) -> Bool {
+        settings[deviceID]?.hidden ?? false
     }
 
     func quit() {
@@ -155,11 +186,16 @@ final class AppState: ObservableObject {
     func openInputMonitoringSettings() {
         // User-initiated is the only place we request access — it registers the app
         // in the Input Monitoring list (apps that never request don't appear there).
-        // If the user denied before, macOS won't prompt again; only then open Settings.
-        if !IOHIDRequestAccess(kIOHIDRequestTypeListenEvent),
-           IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeDenied {
+        // Check first: IOHIDRequestAccess returns false while its prompt is still
+        // pending, so requesting unconditionally would also open Settings on top.
+        switch IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) {
+        case kIOHIDAccessTypeUnknown:
+            IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
+        case kIOHIDAccessTypeDenied:
             let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
             NSWorkspace.shared.open(url)
+        default:
+            break // already granted; startMonitoring picks it up on relaunch
         }
     }
 
@@ -208,7 +244,11 @@ final class AppState: ObservableObject {
         }, context)
 
         IOHIDManagerRegisterDeviceRemovalCallback(manager, { context, _, _, _ in
-            MainActor.assumeIsolated { AppState.from(context)?.refreshDevices() }
+            // The manager still lists the departing device during this callback,
+            // so re-read its set on the next runloop turn instead of right now.
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { AppState.from(context)?.refreshDevices() }
+            }
         }, context)
 
         IOHIDManagerRegisterInputValueCallback(manager, { context, _, _, value in
@@ -227,19 +267,32 @@ final class AppState: ObservableObject {
         return Unmanaged<AppState>.fromOpaque(context).takeUnretainedValue()
     }
 
-    private func refreshDevices() {
+    /// Rebuilds the list from the devices the manager currently has. Also called when
+    /// the popover opens, so a disconnect the callback missed still corrects itself.
+    func refreshDevices() {
         guard let manager, let set = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> else {
             devices = []
             senderIDs = [:]
             return
         }
-        devices = set.map(Self.keyboard(for:)).sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        // Composite devices expose several HID interfaces with the same name/VID/PID;
+        // keep one entry per id.
+        var seen = Set<String>()
+        devices = set.map(Self.keyboard(for:))
+            .filter { seen.insert($0.id).inserted }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         // A tapped event identifies its device by registry entry ID.
         senderIDs = set.reduce(into: [:]) { map, device in
             var entryID: UInt64 = 0
             guard IORegistryEntryGetRegistryEntryID(IOHIDDeviceGetService(device), &entryID) == KERN_SUCCESS
             else { return }
             map[entryID] = Self.keyboard(for: device).id
+        }
+        // A device that's gone must not keep the accent rail lit. Clearing lastActiveID
+        // too means replugging it counts as a change again, so it re-applies its mapping.
+        if let active = activeDeviceID, !devices.contains(where: { $0.id == active }) {
+            activeDeviceID = nil
+            lastActiveID = nil
         }
     }
 
@@ -259,7 +312,7 @@ final class AppState: ObservableObject {
     /// Switches to the device's mapped source if it isn't already active.
     /// Shared by the HID path and the event tap.
     private func applySwitch(for deviceID: String) {
-        guard isEnabled, let wanted = mapping[deviceID], wanted != cachedSourceID else { return }
+        guard isEnabled, let wanted = settings[deviceID]?.source, wanted != cachedSourceID else { return }
         select(wanted)
     }
 
@@ -271,7 +324,7 @@ final class AppState: ObservableObject {
             lastActiveID = deviceID
             activeDeviceID = deviceID
         }
-        guard isEnabled, let wanted = mapping[deviceID], wanted != cachedSourceID,
+        guard isEnabled, let wanted = settings[deviceID]?.source, wanted != cachedSourceID,
               let source = Self.inputSource(id: wanted) else { return .pass }
 
         select(wanted)
