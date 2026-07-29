@@ -11,9 +11,19 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-15
+    # macOS renders apps linked against an older SDK in the previous appearance
+    # (square corners, opaque panels), so the runner's SDK has to be current.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select Xcode 26 if present
+        run: |
+          # Prefer the toolchain the app is developed with; fall back to the image default.
+          latest=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
+          xcodebuild -version
+          echo "SDK: $(xcrun --show-sdk-version)"
 
       - name: Build (version from tag)
         run: |
