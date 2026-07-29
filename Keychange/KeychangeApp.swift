@@ -15,5 +15,16 @@ struct KeychangeApp: App {
             }
         }
         .menuBarExtraStyle(.window)
+
+        Window("About Keychange", id: AboutWindow.id) {
+            AboutView()
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
+}
+
+enum AboutWindow {
+    static let id = "about"
 }

@@ -8,6 +8,7 @@ import SwiftUI
 @MainActor
 struct ContentView: View {
     @EnvironmentObject var state: AppState
+    @Environment(\.openWindow) private var openWindow
 
     /// Option-click on the menu bar item reveals device details for this open,
     /// like the system's own applets (Wi-Fi, Battery). Sampled when the panel opens.
@@ -238,6 +239,11 @@ struct ContentView: View {
                            hint: "When you change the input source yourself — via the Input menu or a keyboard shortcut — Keychange turns itself off instead of switching back while you type. Turn the master switch on again to resume automatic switching.")
             settingsToggle("Launch at login", isOn: $state.launchAtLogin)
 
+            settingsButton("About Keychange") {
+                // LSUIElement: without activating, the panel opens behind everything.
+                NSApp.activate()
+                openWindow(id: AboutWindow.id)
+            }
             settingsButton("Quit", action: state.quit)
         }
     }
