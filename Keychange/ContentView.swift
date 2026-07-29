@@ -10,16 +10,15 @@ struct ContentView: View {
     @EnvironmentObject var state: AppState
     @Environment(\.openWindow) private var openWindow
 
-    /// Option-click on the menu bar item reveals device details for this open,
-    /// like the system's own applets (Wi-Fi, Battery). Sampled when the panel opens.
-    @State private var optionHeld = false
+    /// One reveal, covering the settings, hidden devices and the device IDs. Holding ⌥
+    /// while opening the panel starts in it — like the system's own applets (Wi-Fi,
+    /// Battery) — and the cog toggles it once the panel is open.
+    @State private var revealed = false
 
     /// Which devices were hidden when this open began. Hiding one leaves it on screen
     /// until the next open — a row must not vanish under the picker you just used.
     @State private var hiddenSnapshot: Set<String> = []
 
-    /// Design 3c: the settings section is behind the cog and closed by default.
-    @State private var settingsExpanded = false
     @State private var cogHovered = false
 
     /// The picker's tag for "Hidden". Not a source ID (those are reverse-DNS).
@@ -27,7 +26,7 @@ struct ContentView: View {
 
     /// ⌥ shows everything, which is the way back for a device hidden by mistake.
     private var visibleDevices: [Keyboard] {
-        optionHeld ? state.devices : state.devices.filter { !hiddenSnapshot.contains($0.id) }
+        revealed ? state.devices : state.devices.filter { !hiddenSnapshot.contains($0.id) }
     }
 
     /// Empty state doubles as the "no permission" state: in both cases there is
@@ -54,9 +53,7 @@ struct ContentView: View {
                 deviceList
             }
 
-            cogRow
-
-            if settingsExpanded {
+            if revealed {
                 settingsSection
             }
         }
@@ -75,7 +72,7 @@ struct ContentView: View {
 
     /// What the panel decides once per open: the ⌥ reveal and which rows are hidden.
     private func sampleOpenState() {
-        optionHeld = NSEvent.modifierFlags.contains(.option)
+        revealed = NSEvent.modifierFlags.contains(.option)
         hiddenSnapshot = Set(state.settings.filter(\.value.hidden).keys)
         state.refreshDevices()
         state.retryTapIfNeeded()
@@ -144,9 +141,7 @@ struct ContentView: View {
 
             Spacer(minLength: 8)
 
-            Text(state.devices.isEmpty ? "None connected" : "\(state.devices.count) connected")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+            cogButton
 
             Toggle("Enable Keychange", isOn: $state.isEnabled)
                 .toggleStyle(.switch)
@@ -189,7 +184,7 @@ struct ContentView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
-                if optionHeld {
+                if revealed {
                     Text("VID \(hex4(device.vendorID))   PID \(hex4(device.productID))")
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.tertiary)
@@ -262,26 +257,20 @@ struct ContentView: View {
 
     // MARK: - Settings
 
-    /// Bare glyph in its own row, no separator above it: only the icon is the hit
-    /// target, not the row.
-    private var cogRow: some View {
-        HStack(spacing: 0) {
-            Spacer(minLength: 0)
-            Button {
-                settingsExpanded.toggle()
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color(nsColor: cogHovered ? .labelColor : .secondaryLabelColor))
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .onHover { cogHovered = $0 }
-            .accessibilityLabel(settingsExpanded ? "Hide settings" : "Show settings")
+    /// Bare glyph in the header, left of the master switch. Clicking it is the same
+    /// reveal ⌥-opening the panel gives, just reachable without closing it first.
+    private var cogButton: some View {
+        Button {
+            revealed.toggle()
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 14))
+                .foregroundStyle(Color(nsColor: cogHovered ? .labelColor : .secondaryLabelColor))
+                .contentShape(Rectangle())
         }
-        .padding(.top, 5)
-        .padding(.trailing, 10)
-        .padding(.bottom, 2)
+        .buttonStyle(.plain)
+        .onHover { cogHovered = $0 }
+        .accessibilityLabel(revealed ? "Hide settings" : "Show settings")
     }
 
     private var settingsSection: some View {

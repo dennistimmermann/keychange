@@ -124,7 +124,7 @@ struct AboutView: View {
     /// The ⌥ reveal is otherwise undiscoverable — and it is the only way back
     /// once a device has been set to Hidden.
     private var tip: some View {
-        Text("Hold ⌥ while opening Keychange to reveal hidden devices and device IDs.")
+        Text("Hold ⌥ while opening Keychange, or click the cog, to reveal the settings, hidden devices and device IDs.")
             .font(.system(size: 11))
             .foregroundStyle(Color(nsColor: .labelColor))
             .multilineTextAlignment(.center)
