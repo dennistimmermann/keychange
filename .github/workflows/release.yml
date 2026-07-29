@@ -65,9 +65,22 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
           APP=build/Build/Products/Release/Keychange.app
+          # `xcodebuild build` (unlike `archive`) can drop the secure timestamp the
+          # notary service requires. The app has no nested code, so one re-sign with
+          # explicit flags is enough to guarantee what gets submitted.
+          codesign --force --timestamp --options runtime \
+            --sign "Developer ID Application" "$APP"
+          codesign -dvvv "$APP"
           ditto -c -k --keepParent "$APP" notarize.zip
-          xcrun notarytool submit notarize.zip --wait \
+          # `submit --wait` exits non-zero when the result is Invalid, so capture the
+          # id first and always print the notary log — it names the rejection reason.
+          xcrun notarytool submit notarize.zip --wait --output-format json \
+            --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id N3BEDTWSK4 \
+            > notary.json || true
+          cat notary.json
+          xcrun notarytool log "$(jq -r .id notary.json)" \
             --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id N3BEDTWSK4
+          test "$(jq -r .status notary.json)" = Accepted
           xcrun stapler staple "$APP"
           ditto -c -k --keepParent "$APP" Keychange.zip
           spctl -a -vvv -t exec "$APP"
