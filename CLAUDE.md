@@ -11,6 +11,10 @@ workflow passes it to `gh release create --notes-file`, and the appcast's `<desc
 body converted to HTML, so it is literally what users read in Sparkle's "A new version is available"
 panel before deciding to install.
 
-Write it for the person deciding whether to install, not for the person who wrote the code: what
-changed for them, in their words. Not a list of commit subjects — that is why the workflow no longer
-uses `--generate-notes`. Never tag a release without updating the file first.
+Keep it brief: a plain list of what was added, what changed, and what was fixed — one line each, in
+the user's terms, not the code's. No prose paragraphs, no narrating the reasoning, and not a dump of
+commit subjects (which is why the workflow no longer uses `--generate-notes`). Never tag a release
+without updating the file first.
+
+Layout and visual polish — spacing, alignment, how a value is formatted — stays out of the notes
+unless I ask for it. Features, behaviour changes and bug fixes go in.

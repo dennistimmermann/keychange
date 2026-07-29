@@ -10,10 +10,13 @@ struct ContentView: View {
     @EnvironmentObject var state: AppState
     @Environment(\.openWindow) private var openWindow
 
-    /// One reveal, covering the settings, hidden devices and the device IDs. Holding ⌥
-    /// while opening the panel starts in it — like the system's own applets (Wi-Fi,
-    /// Battery) — and the cog toggles it once the panel is open.
-    @State private var revealed = false
+    /// Hold ⌥ while opening the panel to reveal the device IDs, like the system's own
+    /// applets (Wi-Fi, Battery) do. Sampled once per open; the cog does not set it.
+    @State private var optionHeld = false
+
+    /// The settings section, which only the cog opens. Also brings hidden devices back,
+    /// since un-hiding one is a settings job.
+    @State private var settingsExpanded = false
 
     /// Which devices were hidden when this open began. Hiding one leaves it on screen
     /// until the next open — a row must not vanish under the picker you just used.
@@ -24,9 +27,12 @@ struct ContentView: View {
     /// The picker's tag for "Hidden". Not a source ID (those are reverse-DNS).
     private static let hiddenTag = "hidden"
 
-    /// The reveal shows everything, which is the way back for a device hidden by mistake.
+    /// Hidden devices come back whenever the panel is in a configuring mood — ⌥ or the
+    /// open settings — which is the way back for a device hidden by mistake.
     private var visibleDevices: [Keyboard] {
-        revealed ? state.devices : state.devices.filter { !hiddenSnapshot.contains($0.id) }
+        optionHeld || settingsExpanded
+            ? state.devices
+            : state.devices.filter { !hiddenSnapshot.contains($0.id) }
     }
 
     /// Empty state doubles as the "no permission" state: in both cases there is
@@ -54,10 +60,10 @@ struct ContentView: View {
                     // The cog used to sit in a row below the list and carried the bottom
                     // margin with it. The prompts have their own generous padding and the
                     // settings rows bring theirs, so only the bare list needs this back.
-                    .padding(.bottom, revealed ? 0 : 6)
+                    .padding(.bottom, settingsExpanded ? 0 : 4)
             }
 
-            if revealed {
+            if settingsExpanded {
                 Divider()
                     .padding(.vertical, 5)
                     .padding(.horizontal, 9)
@@ -80,7 +86,7 @@ struct ContentView: View {
 
     /// What the panel decides once per open: the ⌥ reveal and which rows are hidden.
     private func sampleOpenState() {
-        revealed = NSEvent.modifierFlags.contains(.option)
+        optionHeld = NSEvent.modifierFlags.contains(.option)
         hiddenSnapshot = Set(state.settings.filter(\.value.hidden).keys)
         state.refreshDevices()
         state.retryTapIfNeeded()
@@ -192,8 +198,10 @@ struct ContentView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
-                if revealed {
-                    Text("VID \(hex4(device.vendorID))   PID \(hex4(device.productID))")
+                if optionHeld {
+                    // `vid:pid`, the notation every USB tool uses. Spelled out as
+                    // "VID 0x… PID 0x…" it does not fit the name column beside the picker.
+                    Text(String(format: "%04lX:%04lX", device.vendorID, device.productID))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
@@ -239,11 +247,6 @@ struct ContentView: View {
         )
     }
 
-    /// `0x05AC`-style, uppercase, zero padded to four digits.
-    private func hex4(_ value: Int) -> String {
-        String(format: "0x%04lX", value)
-    }
-
     // MARK: - Empty state
 
     private var emptyState: some View {
@@ -268,7 +271,7 @@ struct ContentView: View {
     /// reveal ⌥-opening the panel gives, just reachable without closing it first.
     private var cogButton: some View {
         Button {
-            revealed.toggle()
+            settingsExpanded.toggle()
         } label: {
             Image(systemName: "gearshape")
                 .font(.system(size: 14))
@@ -277,7 +280,7 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .onHover { cogHovered = $0 }
-        .accessibilityLabel(revealed ? "Hide settings" : "Show settings")
+        .accessibilityLabel(settingsExpanded ? "Hide settings" : "Show settings")
     }
 
     private var settingsSection: some View {

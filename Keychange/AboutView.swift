@@ -121,10 +121,10 @@ struct AboutView: View {
             .onHover { hoveredRow = $0 ? label : nil }
     }
 
-    /// Nothing else points at the reveal's contents — and it is the only way back
-    /// once a device has been set to Hidden.
+    /// Nothing else points at the ⌥ reveal — the cog brings hidden devices back too,
+    /// but the device IDs have no other route.
     private var tip: some View {
-        Text("Hold ⌥ while opening Keychange, or click the cog, to reveal the settings, hidden devices and device IDs.")
+        Text("Hold ⌥ while opening Keychange to reveal hidden devices and device IDs.")
             .font(.system(size: 11))
             .foregroundStyle(Color(nsColor: .labelColor))
             .multilineTextAlignment(.center)
