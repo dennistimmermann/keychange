@@ -25,6 +25,25 @@ jobs:
           xcodebuild -version
           echo "SDK: $(xcrun --show-sdk-version)"
 
+      # The Developer ID certificate lives in the repo secrets as a base64'd .p12.
+      # It goes into a throwaway keychain that dies with the runner.
+      - name: Import signing certificate
+        env:
+          CERT_P12_BASE64: ${{ secrets.CERT_P12_BASE64 }}
+          CERT_P12_PASSWORD: ${{ secrets.CERT_P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "$CERT_P12_BASE64" | base64 --decode > cert.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import cert.p12 -k build.keychain -P "$CERT_P12_PASSWORD" -T /usr/bin/codesign
+          # Without this, codesign blocks on a GUI prompt for the private key.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security list-keychains -d user -s build.keychain login.keychain-db
+          rm cert.p12
+          security find-identity -v -p codesigning build.keychain
+
       - name: Build (version from tag)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -32,14 +51,26 @@ jobs:
             -derivedDataPath build \
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM=N3BEDTWSK4 \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
             build
-        # ponytail: unsigned build (Gatekeeper will warn); once the signing
-        # certificate is in the repo secrets, add a keychain-import step and
-        # drop CODE_SIGNING_ALLOWED=NO, plus notarytool for distribution.
 
-      - name: Zip app
-        run: ditto -c -k --keepParent build/Build/Products/Release/Keychange.app Keychange.zip
+      # The notarization ticket staples into the .app, so the release zip has to
+      # be built after stapling — hence zipping twice.
+      - name: Notarize and staple
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          APP=build/Build/Products/Release/Keychange.app
+          ditto -c -k --keepParent "$APP" notarize.zip
+          xcrun notarytool submit notarize.zip --wait \
+            --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id N3BEDTWSK4
+          xcrun stapler staple "$APP"
+          ditto -c -k --keepParent "$APP" Keychange.zip
+          spctl -a -vvv -t exec "$APP"
 
       - name: Create GitHub release
         env:
