@@ -18,6 +18,10 @@ struct ContentView: View {
     /// until the next open — a row must not vanish under the picker you just used.
     @State private var hiddenSnapshot: Set<String> = []
 
+    /// Design 3c: the settings section is behind the cog and closed by default.
+    @State private var settingsExpanded = false
+    @State private var cogHovered = false
+
     /// The picker's tag for "Hidden". Not a source ID (those are reverse-DNS).
     private static let hiddenTag = "hidden"
 
@@ -50,11 +54,11 @@ struct ContentView: View {
                 deviceList
             }
 
-            Divider()
-                .padding(.vertical, 5)
-                .padding(.horizontal, 9)
+            cogRow
 
-            settingsSection
+            if settingsExpanded {
+                settingsSection
+            }
         }
         .padding(6)
         .frame(width: 344)
@@ -257,6 +261,28 @@ struct ContentView: View {
     }
 
     // MARK: - Settings
+
+    /// Bare glyph in its own row, no separator above it: only the icon is the hit
+    /// target, not the row.
+    private var cogRow: some View {
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            Button {
+                settingsExpanded.toggle()
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color(nsColor: cogHovered ? .labelColor : .secondaryLabelColor))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { cogHovered = $0 }
+            .accessibilityLabel(settingsExpanded ? "Hide settings" : "Show settings")
+        }
+        .padding(.top, 5)
+        .padding(.trailing, 10)
+        .padding(.bottom, 2)
+    }
 
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 1) {
