@@ -6,7 +6,7 @@ struct AboutView: View {
 
     // Edit these three in place; nothing else hardcodes them.
     private let slogan = "Switches the input source per keyboard."
-    private let repoURL = URL(string: "https://github.com/dtimmermann/keychange")!
+    private let repoURL = URL(string: "https://github.com/dennistimmermann/keychange")!
     private let coffeeURL = URL(string: "https://buymeacoffee.com/dtimmermann")!
 
     private let upstreamURL = "https://github.com/ohueter/autokbisw"
