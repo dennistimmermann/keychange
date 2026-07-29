@@ -152,8 +152,10 @@ struct ContentView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            // Display name, so the Debug build reads "KEYCHANGE DEV".
-            Text((Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Keychange").uppercased())
+            // Display name, so the Debug build reads "KEYCHANGE DEV" — except in
+            // mock (screenshot) mode, where the dev suffix must not show.
+            Text((state.mockMode ? "Keychange"
+                                 : Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Keychange").uppercased())
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.66) // 0.06em at 11pt
                 .foregroundStyle(.secondary)

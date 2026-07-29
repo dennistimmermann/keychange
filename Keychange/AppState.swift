@@ -130,6 +130,11 @@ final class AppState: ObservableObject {
         static let instantSwitching = "instantSwitching"
     }
 
+    /// Screenshot mode (`-mockData`): the popover shows these fake keyboards and
+    /// nothing real is monitored or refreshed. Debug builds only in practice —
+    /// the flag is harmless but pointless in a release.
+    let mockMode = ProcessInfo.processInfo.arguments.contains("-mockData")
+
     private let defaults = UserDefaults.standard
     private var manager: IOHIDManager?
     /// autokbisw's `lastActiveKeyboard` debounce: only act when the typing device actually changes.
@@ -180,6 +185,26 @@ final class AppState: ObservableObject {
         autoDisabled = defaults.bool(forKey: Key.autoDisabled)
         instantSwitching = defaults.bool(forKey: Key.instantSwitching)
         launchAtLogin = SMAppService.mainApp.status == .enabled
+
+        if mockMode {
+            let german = InputSource(id: "com.apple.keylayout.German", name: "German")
+            let korean = InputSource(id: "com.apple.inputmethod.Korean.2SetKorean", name: "2-Set Korean")
+            let us = InputSource(id: "com.apple.keylayout.US", name: "U.S.")
+            inputSources = [german, korean, us]
+            let mocks: [(Keyboard, InputSource)] = [
+                (Keyboard(id: "mock-internal", name: "Apple Internal Keyboard / Trackpad",
+                          vendorID: 0x05AC, productID: 0x0342), german),
+                (Keyboard(id: "mock-keychron", name: "Keychron K2", vendorID: 0x3434, productID: 0x0121), us),
+                (Keyboard(id: "mock-mx", name: "MX Keys for Mac", vendorID: 0x046D, productID: 0xB35B), korean),
+            ]
+            devices = mocks.map(\.0)
+            settings = Dictionary(uniqueKeysWithValues: mocks.map { ($0.id, DeviceSetting(source: $1.id)) })
+            activeDeviceID = "mock-keychron"
+            hasPermission = true
+            isEnabled = true
+            refreshMenuBarCode()
+            return
+        }
 
         refreshInputSources()
         refreshMenuBarCode()
@@ -330,6 +355,7 @@ final class AppState: ObservableObject {
     /// Rebuilds the list from the devices the manager currently has. Also called when
     /// the popover opens, so a disconnect the callback missed still corrects itself.
     func refreshDevices() {
+        if mockMode { return }
         guard let manager, let set = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> else {
             devices = []
             senderIDs = [:]
@@ -407,6 +433,7 @@ final class AppState: ObservableObject {
     /// Also called when the popover opens: enabling a source in System Settings does
     /// not always fire a TIS notification we observe, so the list could be stale.
     func refreshInputSources() {
+        if mockMode { return }
         guard let all = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource] else { return }
         inputSources = all.compactMap { source in
             guard Self.property(source, kTISPropertyInputSourceCategory) as? String == (kTISCategoryKeyboardInputSource as String),
