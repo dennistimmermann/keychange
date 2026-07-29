@@ -5,7 +5,7 @@ German on the internal one, ABC on the mechanical, Korean on the one by the wind
 switches the system input source as soon as you start typing on that device.
 
 <p align="center">
-  <img src="docs/screenshot.png" width="341" alt="The Keychange menu bar popover: three keyboards, each with its own input source, and the settings below.">
+  <img src="docs/screenshot.png" width="414" alt="The Keychange popover listing two keyboards, each with its own input source.">
 </p>
 
 macOS switches input sources per app, or when you press a shortcut — never per keyboard. If you own

@@ -13,8 +13,10 @@
 <meta property="og:site_name" content="Keychange">
 <meta property="og:title" content="Keychange — one layout per keyboard">
 <meta property="og:description" content="macOS switches input sources per app, never per keyboard. Keychange assigns one to each of your keyboards and switches as you move between them.">
-<meta property="og:image" content="https://dennistimmermann.github.io/keychange/screenshot.png">
-<meta property="og:image:alt" content="The Keychange menu bar popover listing three keyboards, each with its own input source.">
+<meta property="og:image" content="https://dennistimmermann.github.io/keychange/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Keychange — one layout per keyboard. The menu bar item and its popover, listing two keyboards with their input sources.">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -29,7 +31,7 @@
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="https://github.com/dennistimmermann/keychange">GitHub</a>
-      <a class="button small" href="https://github.com/dennistimmermann/keychange/releases">Download</a>
+      <a class="button small" href="https://github.com/dennistimmermann/keychange/releases/latest">Download</a>
     </div>
   </nav>
 
@@ -40,51 +42,18 @@
       <p>Assign an input source to each of your keyboards. Keychange switches the moment your
          hands do.</p>
       <div class="cta">
-        <a class="button" href="https://github.com/dennistimmermann/keychange/releases">Download for macOS</a>
+        <a class="button" href="https://github.com/dennistimmermann/keychange/releases/latest">Download for macOS</a>
         <p class="cta-note">Free · MIT · macOS 14+<br>Apple silicon</p>
       </div>
     </div>
 
     <div class="hero-shot">
-      <!-- Reproduction of the shipped panel; see Keychange/ContentView.swift -->
       <div class="menubar">
-        <span class="mb-badge" aria-label="Keychange menu bar icon showing DE"><i></i><b>DE</b></span>
-        <span class="mb-dim">100%</span>
-        <span class="mb-dim">Mon 09:41</span>
+        <span class="mb-badge" aria-label="Keychange in the menu bar, showing EN"><i></i><b>EN</b></span>
+        <span class="mb-dim" id="clock">Wed 29. Jul&nbsp;&nbsp;15:32</span>
       </div>
-
-      <div class="panel">
-        <div class="panel-head">
-          <span class="panel-title">KEYCHANGE</span>
-          <span class="panel-count">3 connected</span>
-          <span class="switch on"></span>
-        </div>
-
-        <div class="row">
-          <span class="rail"></span>
-          <span class="device">Apple Internal Keyboard / Trackpad</span>
-          <span class="select">ABC <i>⌄</i></span>
-        </div>
-        <div class="row active">
-          <span class="rail"></span>
-          <span class="device">Keychron K2 Version 2</span>
-          <span class="select">German <i>⌄</i></span>
-        </div>
-        <div class="row">
-          <span class="rail"></span>
-          <span class="device">HHKB Professional HYBRID</span>
-          <span class="select">Don’t switch <i>⌄</i></span>
-        </div>
-
-        <hr>
-
-        <div class="setting"><span>Intercept keystrokes <b>ⓘ</b></span><span class="switch"></span></div>
-        <div class="setting"><span>Auto-disable on external switch <b>ⓘ</b></span><span class="switch"></span></div>
-        <div class="setting"><span>Launch at login</span><span class="switch"></span></div>
-        <div class="setting plain"><span>About Keychange</span></div>
-        <div class="setting plain"><span>Quit</span></div>
-      </div>
-
+      <img src="panel.png" width="390" height="156"
+           alt="The Keychange popover listing two keyboards: Air75 V3 set to U.S. with German Umlauts, and the built-in keyboard set to German.">
     </div>
   </header>
 
@@ -116,5 +85,19 @@
   </footer>
 
 </div>
+
+<script>
+// The mock menu bar shows the visitor's own clock, in their locale — the markup
+// carries a static fallback for anyone without JS.
+(function tick() {
+  const now = new Date();
+  const date = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+                  .replace(/,/g, '');   // the menu bar spells it without commas
+  const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  document.getElementById('clock').textContent = date + '  ' + time;
+  // Land on the next minute rather than drifting a second at a time.
+  setTimeout(tick, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()));
+})();
+</script>
 </body>
 </html>

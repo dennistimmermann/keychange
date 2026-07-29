@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Keychange — share card source</title>
+<!--
+  Source for og.png, the 1200×630 link-preview card. Not linked from anywhere;
+  it exists so the card can be regenerated instead of redrawn by hand:
+
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+      --screenshot=og.png --window-size=1200,630 --force-device-scale-factor=2 \
+      --hide-scrollbars docs/og.html      # then downscale 2400×1260 → 1200×630
+
+  It borrows style.css so the type, colours and the menu bar stay in step with
+  the page; only the card's own frame lives here.
+-->
+<link rel="stylesheet" href="style.css">
+<style>
+  html, body { margin: 0; }
+  body {
+    width: 1200px;
+    height: 630px;
+    display: grid;
+    grid-template-columns: 1fr 430px;
+    align-items: center;
+    gap: 56px;
+    padding: 0 76px;
+    background: var(--desk);
+    overflow: hidden;
+  }
+  /* Mark and name together: a link preview that never spells out the product's
+     name is a wasted card. */
+  .brand { display: flex; align-items: center; gap: 20px; margin-bottom: 34px; }
+  .brand img { display: block; width: 108px; height: 108px; }
+  .brand span {
+    font-family: var(--sans);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  h1 {
+    font-family: var(--sans);
+    font-size: 68px;
+    font-weight: 600;
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    color: var(--ink);
+    margin: 0 0 22px;
+    max-width: 12ch;
+  }
+  .slogan { font-size: 20px; line-height: 1.5; margin: 0; max-width: 36ch; }
+  .meta { font-size: 15px; color: var(--footer); margin: 30px 0 0; }
+  /* The hero's own shot, one notch larger so it holds its weight on a card. */
+  .shot { justify-self: end; width: 430px; }
+  .shot img { display: block; width: 430px; margin: -14px 0 0 auto; }
+  .menubar { gap: 22px; height: 44px; padding: 0 20px; font-size: 15px; }
+  .mb-badge { width: 25px; height: 20px; }
+  .mb-badge i, .mb-badge b { width: 21px; height: 15.8px; border-radius: 4.6px; }
+  .mb-badge i { left: 4.2px; top: 0.9px; }
+  .mb-badge b { top: 4.1px; font-size: 11px; line-height: 15.8px; }
+</style>
+</head>
+<body>
+
+  <div>
+    <div class="brand"><img src="keychange-icon.svg" alt=""><span>Keychange</span></div>
+    <h1>One layout per keyboard.</h1>
+    <p class="slogan">Assign an input source to each of your keyboards. Keychange switches
+       the moment your hands do.</p>
+    <p class="meta">Free · MIT · macOS 14+</p>
+  </div>
+
+  <div class="shot">
+    <div class="menubar">
+      <span class="mb-badge"><i></i><b>EN</b></span>
+      <span class="mb-dim">Wed 29 Jul&nbsp;&nbsp;15:32</span>
+    </div>
+    <img src="panel.png" alt="">
+  </div>
+
+</body>
+</html>
