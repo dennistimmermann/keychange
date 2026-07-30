@@ -86,7 +86,7 @@ final class AppState: ObservableObject {
             defaults.set(isEnabled, forKey: Key.isEnabled)
             refreshMenuBarCode()
             // Cleared after refreshMenuBarCode so the re-enable animation still
-            // sees the flag and fades the "!" out.
+            // sees the flag and fades the pause bars out.
             if isEnabled { autoDisabled = false }
         }
     }
@@ -148,7 +148,7 @@ final class AppState: ObservableObject {
     /// Registry entry ID -> device id, for identifying the sender of a tapped event.
     private var senderIDs: [UInt64: String] = [:]
     private let tap = KeyEventTap()
-    /// Set when "Auto-disable on external switch" turned the app off (drives the "!" mark
+    /// Set when "Auto-disable on external switch" turned the app off (drives the pause mark
     /// and the popover info box); cleared when the user re-enables. Persisted so a
     /// relaunch keeps the reason.
     @Published private(set) var autoDisabled = false {
@@ -595,15 +595,32 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// The pause mark: two bars knocked out of the plate, drawn instead of a glyph
+    /// because no font's "pause" is a plain pair of bars at this size.
+    nonisolated private static func knockOutPause(in rect: NSRect, fraction: CGFloat, _ ctx: CGContext) {
+        guard fraction > 0 else { return }
+        let width: CGFloat = 0.9, height: CGFloat = 3.4, gap: CGFloat = 0.9
+        ctx.saveGState()
+        ctx.setBlendMode(.destinationOut)
+        ctx.setAlpha(fraction)
+        NSColor.black.setFill()
+        for offset in [-(gap + width) / 2, (gap + width) / 2] {
+            NSBezierPath(roundedRect: NSRect(x: rect.midX + offset - width / 2, y: rect.midY - height / 2,
+                                             width: width, height: height),
+                         xRadius: width / 2, yRadius: width / 2).fill()
+        }
+        ctx.restoreGState()
+    }
+
     /// One frame of the enable/disable transition. t = 0: enabled badge (which is
     /// also the static mark). t = 1: disabled — same geometry, front plate dimmed
     /// to 40% with the code faded out. No motion, just opacity. `autoDisabledMark` fades
-    /// a "!" in as the code fades out (auto-disabled by an external switch).
+    /// the pause bars in as the code fades out (auto-disabled by an external switch).
     nonisolated private static func enableFrame(t: CGFloat, code: String, autoDisabledMark: Bool = false) -> NSImage {
         markImage { ctx in
             drawPlate(backPlate, alpha: 0.4, ctx)
             drawPlate(frontPlate, alpha: 1 - 0.6 * t, code: code, glyphFraction: 1 - t, ctx)
-            if autoDisabledMark { knockOut(glyph("!"), in: frontPlate, fraction: t, ctx) }
+            if autoDisabledMark { knockOutPause(in: frontPlate, fraction: t, ctx) }
         }
     }
 
