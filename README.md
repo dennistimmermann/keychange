@@ -37,6 +37,13 @@ start typing on that device. Inspired by [autokbisw](https://github.com/ohueter/
 Download [Keychange.dmg](https://github.com/dennistimmermann/keychange/releases/latest/download/Keychange.dmg),
 drag `Keychange.app` into `/Applications`, and launch it.
 
+Or with Homebrew:
+
+```sh
+brew tap dennistimmermann/tap
+brew install --cask keychange
+```
+
 Keychange will ask for **Input Monitoring** permission — that's how macOS lets it see which keyboard
 a keystroke came from, and it's the only way to do this.
 
