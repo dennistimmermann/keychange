@@ -205,10 +205,67 @@ em { font-style: normal; color: var(--ink); }
 
 footer {
   margin-top: auto;          /* keep the footer at the bottom on short pages */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  justify-content: space-between;
   padding: 18px 40px;
   border-top: 0.5px solid var(--hairline);
   font-size: 11px;
   color: var(--footer);
+}
+
+/* § 5 DDG wants the Impressum reachable from anywhere on the site, and the GDPR wants
+   the same of the privacy notice, so these sit in the footer of every page. */
+.footer-legal { display: flex; flex-wrap: wrap; gap: 18px; }
+
+/* ---------- legal pages ----------
+   Impressum, privacy, terms. Same surface as the feature cards; the hero's h1 is far
+   too large for prose, so the type resets here. */
+
+.legal { padding: 52px 40px 60px; }
+
+.legal article {
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--panel);
+  border: 0.5px solid var(--hairline);
+  border-radius: 11px;
+  padding: 38px 42px;
+  box-shadow: 0 1px 2px rgba(20, 18, 30, 0.05);
+}
+
+.legal h1 {
+  font-size: 29px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  max-width: none;
+  margin: 0 0 4px;
+}
+
+.legal .sub { font-size: 11.5px; margin: 0 0 28px; }
+
+.legal h2 {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 28px 0 8px;
+}
+
+.legal p, .legal li { font-size: 13px; line-height: 1.7; margin: 0 0 11px; }
+.legal ul { margin: 0 0 11px; padding-left: 19px; }
+.legal address { font-style: normal; font-size: 13px; line-height: 1.7; }
+.legal a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Anything only Dennis can fill in. Deliberately loud: an Impressum with a placeholder
+   address in it is worse than no Impressum at all. */
+.fill {
+  background: #FFE9A8;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--ink);
 }
 
 /* ---------- responsive ---------- */
