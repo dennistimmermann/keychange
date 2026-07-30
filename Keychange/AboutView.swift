@@ -9,7 +9,9 @@ struct AboutView: View {
     private let repoURL = URL(string: "https://github.com/dennistimmermann/keychange")!
     private let coffeeURL = URL(string: "https://ko-fi.com/tmrmn")!
 
-    private let upstreamURL = "https://github.com/ohueter/autokbisw"
+    // @ohueter's fork is the maintained one, so it gets the link; @jeantil wrote the
+    // original. Adding a second line here means +18 on the frame height below.
+    private let autokbiswURL = "https://github.com/ohueter/autokbisw"
     private let sparkleURL = "https://github.com/sparkle-project/Sparkle"
 
     @EnvironmentObject private var state: AppState
@@ -138,7 +140,7 @@ struct AboutView: View {
 
     private var footer: some View {
         VStack(spacing: 0) {
-            Text("Inspired by [autokbisw](\(upstreamURL)) by @ohueter.")
+            Text("Inspired by [autokbisw](\(autokbiswURL)) by @ohueter and @jeantil.")
             Text("Updates by [Sparkle](\(sparkleURL)), MIT licensed.")
             Text("© 2026 Dennis Timmermann")
         }

@@ -98,8 +98,8 @@ Keychange is free and stays free. If it saved you some friction, you can leave a
 
 ## Credits
 
-Inspired by [autokbisw](https://github.com/ohueter/autokbisw) by @ohueter, a command-line tool that
-solves the same problem. Keychange is an independent implementation with a UI.
+Inspired by [autokbisw](https://github.com/ohueter/autokbisw) by @ohueter and @jeantil, a
+command-line tool that solves the same problem.
 
 Automatic updates are powered by [Sparkle](https://github.com/sparkle-project/Sparkle), MIT licensed.
 
