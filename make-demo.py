@@ -37,19 +37,28 @@ FPS = 20
 # The loupe magnifies the patch of menu bar around the status item and names the input
 # source under it — the real mark is 23pt wide and the switch it shows is the whole
 # point of the loop. Without it the canvas is narrower, since it needs the room.
+# "og" wraps the plain scene in the 1200x630 share card, laid out like og.html — the
+# animated companion to og.png. It starts on the payoff frame rather than the empty
+# field, because most platforms (Facebook, LinkedIn, Slack, iMessage, Mastodon) show a
+# still of a link preview; only Discord and Telegram animate one. It also stands alone
+# as the image to attach to a post, where GIFs do play.
 VARIANTS = {
     "demo": {"callout": True},
     "demo-no-loupe": {"callout": False},
+    "og": {"callout": True, "card": True},
 }
 
 # ---------------------------------------------------------------- palette (docs/style.css)
 DESK = (228, 225, 219)
 PANEL = (251, 251, 252)
 INK = (29, 29, 31)
+BODY = (87, 83, 76)             # --body
+FOOTER = (79, 75, 69)           # --footer
 HAIRLINE_A = 0.10
 SHADOW_A = 0.12
 
 SFNS = "/System/Library/Fonts/SFNS.ttf"
+SFMONO = "/System/Library/Fonts/SFNSMono.ttf"    # the page's body voice
 
 # ---------------------------------------------------------------- geometry (points)
 M = 30                          # page margin
@@ -116,6 +125,10 @@ LENS_RIM, LENS_RIM_A = 2, 0.3
 CALLOUT_LABEL = 26              # lens bottom to the source name's baseline
 CALLOUT_TEXT = 15
 CALLOUT_ROOM = 60               # extra canvas width the lens needs beside the popover
+# How much of the bar's height the lens covers. Riding the bar's bottom edge rather
+# than sitting clear of it is most of what makes it read as a glass held over the bar;
+# it can only do that where the bar is empty, which is everywhere left of the clock.
+LENS_BAR_OVERLAP = 0.5
 
 # The two keyboards being typed on, in panel row order. The panel lists a third
 # (MX Keys) that is connected but idle — which is the honest picture.
@@ -137,8 +150,30 @@ HAND_LEAD, HAND_S = 0.17, 0.14  # the hand moves this far ahead of the app react
 T_TYPE1 = 0.50                                                  # opening beat
 T_SWITCH = T_TYPE1 + len(TYPED[0]) * CHAR_S + 0.35
 T_TYPE2 = T_SWITCH + SWITCH_S + 0.25
-T_RETURN = T_TYPE2 + len(TYPED[1]) * CHAR_S + 1.20              # time to read it
+T_TYPED = T_TYPE2 + len(TYPED[1]) * CHAR_S                      # both parts on screen
+T_RETURN = T_TYPED + 1.20                                       # time to read it
 DURATION = T_RETURN + SWITCH_S + 0.15
+
+# ---------------------------------------------------------------- the share card
+# og.html's layout and type, redrawn here so the animated card is a sibling of the
+# static one rather than a lookalike: same padding, mark, sizes and leading. The scene
+# replaces og.png's little menu bar strip and keeps its true size, so the popover is a
+# real 344pt surface here too.
+OG_W, OG_H = 1200, 630
+OG_PAD = 76
+OG_MARK, OG_MARK_GAP = 108, 20
+OG_BRAND, OG_BRAND_BELOW = 30, 34
+OG_TITLE, OG_TITLE_LEAD, OG_TITLE_BELOW = 68, 1.04, 22
+OG_SLOGAN, OG_SLOGAN_LEAD, OG_SLOGAN_BELOW = 20, 1.5, 30
+OG_META = 15
+OG_TEXT_GAP = 40               # least air between the copy and the scene
+OG_TITLE_LINES = ["One layout", "per keyboard."]
+OG_SLOGAN_LINES = ["Assign an input source to each of",
+                   "your keyboards. Keychange switches",
+                   "the moment your hands do."]
+OG_META_LINE = "Free · MIT · macOS 14+"
+# Far enough past T_TYPED that the still shows the finished sentence and the DE mark.
+OG_START = T_TYPED + 0.15
 
 
 def smoothstep(t):
@@ -204,9 +239,9 @@ def layout(callout, chip_w):
     spot = None
     if callout:
         # Centred in the desk the popover leaves free on its left (clear of the
-        # capture's baked shadow), and vertically between the bar and the field.
+        # capture's baked shadow), and hung over the bar's bottom edge.
         free = (w - M - PANEL_W - SHOT_INSET_X) - M
-        spot = (M + (free - LENS_D) / 2, (M + BAR_H + field_top) / 2 - LENS_D / 2)
+        spot = (M + (free - LENS_D) / 2, M + BAR_H * (1 - LENS_BAR_OVERLAP))
 
     return {
         "callout": spot,
@@ -278,6 +313,56 @@ def font(size, weight="Regular"):
     f = ImageFont.truetype(SFNS, int(size * S))
     f.set_variation_by_name(weight)
     return f
+
+
+def mono(size):
+    return ImageFont.truetype(SFMONO, int(size * S))
+
+
+def og_scene_left(scene_w):
+    """Where the scene's content starts, once its right edge is on the card's padding."""
+    return OG_W - OG_PAD - scene_w + 2 * M
+
+
+def og_text_width(scene_w):
+    return og_scene_left(scene_w) - OG_TEXT_GAP - OG_PAD
+
+
+def og_card(scene, fonts, mark):
+    """Wraps one scene frame in the 1200x630 share card. The scene keeps its own size
+    and its own desk background, which is this card's background too, so it drops in
+    seamlessly — only its 30pt of built-in margin has to be allowed for."""
+    card = Image.new("RGB", (OG_W * S, OG_H * S), DESK)
+
+    # Align the scene's content with the card's padding, not its margin-padded edges.
+    sw, sh = scene.size[0] / S, scene.size[1] / S
+    sx = og_scene_left(sw) - M
+    sy = (OG_H - (sh - 2 * M)) / 2 - M
+    card.paste(scene, (int(sx * S), int(sy * S)))
+
+    block = (OG_MARK + OG_BRAND_BELOW
+             + len(OG_TITLE_LINES) * OG_TITLE * OG_TITLE_LEAD + OG_TITLE_BELOW
+             + len(OG_SLOGAN_LINES) * OG_SLOGAN * OG_SLOGAN_LEAD + OG_SLOGAN_BELOW
+             + OG_META)
+    y = (OG_H - block) / 2
+
+    card.paste(mark, (int(OG_PAD * S), int(y * S)), mark)
+    text(card, (OG_PAD + OG_MARK + OG_MARK_GAP, y + OG_MARK / 2 + OG_BRAND * 0.36),
+         "Keychange", fonts["og_brand"], INK)
+    y += OG_MARK + OG_BRAND_BELOW
+
+    for line in OG_TITLE_LINES:
+        y += OG_TITLE * OG_TITLE_LEAD
+        text(card, (OG_PAD, y - OG_TITLE * 0.22), line, fonts["og_title"], INK)
+    y += OG_TITLE_BELOW
+
+    for line in OG_SLOGAN_LINES:
+        y += OG_SLOGAN * OG_SLOGAN_LEAD
+        text(card, (OG_PAD, y - OG_SLOGAN * 0.35), line, fonts["og_slogan"], BODY)
+    y += OG_SLOGAN_BELOW + OG_META
+
+    text(card, (OG_PAD, y), OG_META_LINE, fonts["og_meta"], FOOTER)
+    return card
 
 
 # ---------------------------------------------------------------- the status item mark
@@ -490,8 +575,12 @@ def chip_width(chip_font):
         chip_font.getlength(d["name"]) for d in DEVICES) / S
 
 
-def build(name, spec, shot, accent, fonts):
+def build(name, spec, shot, accent, fonts, mark):
     L = layout(spec["callout"], chip_width(fonts["chip"]))
+    card = spec.get("card", False)
+    # The loop seams, so rotating where it starts is free — the card uses that to open
+    # on the payoff instead of on an empty text field.
+    t0 = OG_START if card else 0
 
     out = ROOT / "build" / f"frames-{name}"
     out.mkdir(parents=True, exist_ok=True)
@@ -500,11 +589,14 @@ def build(name, spec, shot, accent, fonts):
 
     n = int(round(DURATION * FPS))
     for i in range(n):
-        frame(i / FPS, shot, accent, fonts, L).save(out / f"{i:04d}.png")
+        img = frame((t0 + i / FPS) % DURATION, shot, accent, fonts, L)
+        if card:
+            img = og_card(img, fonts, mark)
+        img.save(out / f"{i:04d}.png")
         print(f"\r  {name}: frame {i + 1}/{n}", end="", flush=True)
 
     gif, mp4 = DOCS / f"{name}.gif", DOCS / f"{name}.mp4"
-    scale = f"scale={L['size'][0]}:-1:flags=lanczos"
+    scale = f"scale={OG_W if card else L['size'][0]}:-1:flags=lanczos"
     # Flat surfaces and soft shadows: a full palette with no dithering beats any
     # dither pattern here, and is smaller — the artwork has few colours to begin with.
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS),
@@ -516,23 +608,33 @@ def build(name, spec, shot, accent, fonts):
                     "-i", str(out / "%04d.png"), "-vf", scale,
                     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
                     "-movflags", "+faststart", str(mp4)], check=True)
-    print(f"\r  {name}: {L['size'][0]}x{L['size'][1]}, "
+    size = (OG_W, OG_H) if card else L["size"]
+    print(f"\r  {name}: {size[0]}x{size[1]}, "
           f"gif {gif.stat().st_size / 1024:.0f} KB, mp4 {mp4.stat().st_size / 1024:.0f} KB")
 
 
-def main(names):
-    shot, accent = load_shot()
-
+def make_fonts():
     def mark_glyph(scale):
         f = ImageFont.truetype(SFNS, int(GLYPH_SIZE * S * SS * scale))
         f.set_variation_by_name("Bold")
         return f
 
-    fonts = {"bar": font(14), "chip": font(13, "Medium"),
-             "field": font(FIELD_TEXT), "source": font(CALLOUT_TEXT, "Medium"),
-             "glyph": mark_glyph(1), "glyph_big": mark_glyph(CALLOUT_SCALE)}
+    return {"bar": font(14), "chip": font(13, "Medium"),
+            "field": font(FIELD_TEXT), "source": font(CALLOUT_TEXT, "Medium"),
+            "glyph": mark_glyph(1), "glyph_big": mark_glyph(CALLOUT_SCALE),
+            "og_brand": font(OG_BRAND, "Semibold"), "og_title": font(OG_TITLE, "Semibold"),
+            "og_slogan": mono(OG_SLOGAN), "og_meta": mono(OG_META)}
+
+
+def main(names):
+    shot, accent = load_shot()
+    fonts = make_fonts()
+    # favicon.png is 128px and the card draws the mark at 108, so this is a downscale.
+    mark = Image.open(DOCS / "favicon.png").convert("RGBA").resize(
+        (int(OG_MARK * S), int(OG_MARK * S)), Image.LANCZOS)
+
     for name in names or VARIANTS:
-        build(name, VARIANTS[name], shot, accent, fonts)
+        build(name, VARIANTS[name], shot, accent, fonts, mark)
 
 
 def demo():
@@ -557,6 +659,25 @@ def demo():
     # The lens has to contain both edges that identify it as the menu bar.
     assert VIEW_TOP < BADGE_Y and VIEW_TOP + VIEW > PANEL_Y, (VIEW_TOP, VIEW)
 
+    # The card's copy is hand-broken into lines, so measure them: silently running
+    # under the scene is the one way this card can go out wrong.
+    fonts = make_fonts()
+    card_spec = next(s for s in VARIANTS.values() if s.get("card"))
+    room = og_text_width(layout(card_spec["callout"],
+                                chip_width(fonts["chip"]))["size"][0])
+    for key, lines in (("og_brand", ["Keychange"]), ("og_title", OG_TITLE_LINES),
+                       ("og_slogan", OG_SLOGAN_LINES), ("og_meta", [OG_META_LINE])):
+        indent = OG_MARK + OG_MARK_GAP if key == "og_brand" else 0
+        for line in lines:
+            used = indent + fonts[key].getlength(line) / S
+            assert used <= room, (key, line, round(used), round(room))
+    block = (OG_MARK + OG_BRAND_BELOW
+             + len(OG_TITLE_LINES) * OG_TITLE * OG_TITLE_LEAD + OG_TITLE_BELOW
+             + len(OG_SLOGAN_LINES) * OG_SLOGAN * OG_SLOGAN_LEAD + OG_SLOGAN_BELOW
+             + OG_META)
+    assert block <= OG_H - 2 * 24, block
+    assert state(OG_START)["text"] == "".join(TYPED), "card must open on the payoff"
+
     for name, spec in VARIANTS.items():
         L = layout(spec["callout"], 180)
         w, h = L["size"]
@@ -568,9 +689,13 @@ def demo():
             qx, qy = L["callout"]
             # The loupe must clear the popover's baked-in shadow, not just its body.
             assert qx >= M and qx + LENS_D <= L["panel"][0] - SHOT_INSET_X, name
-            # And clear the bar above and the field below, label included.
-            assert qy >= M + BAR_H, name
+            # It straddles the bar's bottom edge on purpose, but must stay on the
+            # canvas, and its label must not reach the field.
+            assert qy >= M, (name, qy)
+            assert qy < M + BAR_H < qy + LENS_D, (name, qy)
             assert qy + LENS_D + CALLOUT_LABEL <= L["field"][1], name
+            # It can only overlap the bar where the bar has nothing in it.
+            assert qx + LENS_D < L["bar"][2] - CLOCK_INSET - BADGE_W - ITEM_GAP, name
     print(f"demo: loop seams, hand leads the app, {len(VARIANTS)} layouts fit")
 
 
