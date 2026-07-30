@@ -87,6 +87,7 @@ FIELD_BORDER_A = 0.22
 FIELD_BEVEL, FIELD_BEVEL_A = 3, 0.15
 FIELD_TEXT = 17                 # smaller than a headline; it is a single-line input
 CARET_H = 20
+COMPOSE_RULE, COMPOSE_DROP, COMPOSE_RULE_A = 1, 3, 0.75   # the input method's underline
 
 # The keyboards carry no surface of their own — ink versus grey and the typing
 # animation say which one is live — so they need air between them instead.
@@ -149,15 +150,38 @@ DEVICES = [
 # ---------------------------------------------------------------- script
 # One text field, three keyboards, one sentence per layout. Each leg is the payoff for
 # the one before it: a U.S. layout cannot produce ü or ß, and neither can produce 안녕.
-# ponytail: the Korean leg reveals finished syllables. 2-Set Korean really composes
-# them from jamo across several keystrokes, which is a beat this loop does not have
-# room for. Model it properly if the demo ever slows down enough to show it.
+#
+# A leg is a list of (what the field shows, how many trailing characters are still
+# composing) — one entry per keystroke, because a keystroke does not always just append
+# a character. On a plain layout it does, so `typing()` builds the prefixes.
+
+
+def typing(s):
+    """One keystroke per character, nothing composing: a plain keyboard layout."""
+    return [(s[:i + 1], 0) for i in range(len(s))]
+
+
+# 2-Set Korean puts consonants and vowels on separate keys and the input method builds
+# syllables out of them, so 안녕 is six keystrokes, not two:
+#
+#   ㅇ ㅏ ㄴ   d k s   ->  ㅇ    아    안
+#   ㄴ ㅕ ㅇ   s u d   ->  안ㄴ  안녀  안녕
+#
+# The fourth starts a new syllable instead of joining 안, because ㄴㄴ is not one of
+# Korean's compound finals. Everything before the last keystroke is still composing,
+# which is why it draws underlined — that is what the field really looks like, and it
+# is the thing AppState's "Intercept keystrokes" setting exists to get right.
+# Only ever the syllable in hand: 안 commits the moment the fourth keystroke starts a
+# new one, so from then on the underline sits under the second syllable alone.
+HANGUL = [("ㅇ", 1), ("아", 1), ("안", 1), ("안ㄴ", 1), ("안녀", 1), ("안녕", 1),
+          ("안녕!", 0)]
+
 LEGS = [
-    (1, "Hello "),              # Keychron K2 — U.S.
-    (0, "Grüße! "),             # Apple Internal — German
-    (2, "안녕!"),                # MX Keys — 2-Set Korean
+    (1, typing("Hello! ")),     # Keychron K2 — U.S.
+    (0, typing("Grüße! ")),     # Apple Internal — German
+    (2, HANGUL),                # MX Keys — 2-Set Korean
 ]
-FULL_TEXT = "".join(part for _, part in LEGS)
+FULL_TEXT = "".join(steps[-1][0] for _, steps in LEGS)
 
 CHAR_S = 0.105                  # seconds per keystroke
 SWITCH_S = 0.30                 # AppState.animateIcon runs ~0.3s
@@ -174,12 +198,12 @@ def build_schedule():
     including the closing one back to the first keyboard, which is what makes the loop
     seam. Derived rather than written out, so adding a fourth leg costs one line."""
     legs, switches, t = [], [], HOLD_IN
-    for i, (device, part) in enumerate(LEGS):
+    for i, (device, steps) in enumerate(LEGS):
         if i:
             switches.append((t, LEGS[i - 1][0], device))
             t += SWITCH_S + HOLD_SETTLE
-        legs.append((t, device, part))
-        t += len(part) * CHAR_S
+        legs.append((t, device, steps))
+        t += len(steps) * CHAR_S        # keystrokes, which Hangul has more of
         if i < len(LEGS) - 1:
             t += HOLD_BEFORE
     t_typed = t
@@ -240,13 +264,19 @@ def state(t):
     event: the typing device changed. `hand` runs slightly ahead of it, so around a
     switch the two are looking at different events.
     """
-    out, struck = "", False
-    for start, _, part in LEG_TIMES:
-        for i, ch in enumerate(part):
+    # Each leg contributes whatever its latest landed keystroke shows: the finished
+    # text once it is done, the part-built syllable while it is still going.
+    out, composing, struck = "", 0, False
+    for start, _, steps in LEG_TIMES:
+        landed = 0
+        for i in range(len(steps)):
             at = start + i * CHAR_S + jitter(i + int(start * 100))
             if t >= at:
-                out += ch
+                landed = i + 1
                 struck = struck or (t - at) < 0.09
+        if landed:
+            shown, composing = steps[landed - 1]
+            out += shown
 
     # Before the first switch there is nothing to animate from, so the opening state is
     # the first keyboard already settled — which is also where the loop closes.
@@ -263,6 +293,7 @@ def state(t):
 
     return {
         "text": out,
+        "composing": composing,
         "struck": struck,
         "swap": swap,
         "codes": (DEVICES[frm]["code"], DEVICES[to]["code"]),
@@ -379,13 +410,17 @@ def korean(size):
 
 
 def is_korean(ch):
-    """Hangul syllables and jamo. Latin-1 (ü, ß) and punctuation stay with SF Pro."""
-    return 0xAC00 <= ord(ch) <= 0xD7A3 or 0x1100 <= ord(ch) <= 0x11FF
+    """Hangul syllables plus both jamo blocks — a half-built syllable shows as a lone
+    compatibility jamo (ㅇ is U+3147), not as the conjoining jamo most ranges list, and
+    missing that block is how ㅇ and ㄴ came out as tofu. Latin-1 (ü, ß) and punctuation
+    stay with SF Pro."""
+    return (0xAC00 <= ord(ch) <= 0xD7A3          # syllables
+            or 0x1100 <= ord(ch) <= 0x11FF       # conjoining jamo
+            or 0x3130 <= ord(ch) <= 0x318F)      # compatibility jamo
 
 
-def rich_text(img, xy, s, latin, cjk, color):
-    """Draws `s` run by run, switching font where SF Pro has no glyph. Returns the x it
-    ended at, which is where the caret goes."""
+def font_runs(s, latin, cjk):
+    """Splits `s` where the font has to change, since SF Pro has no Hangul."""
     runs = []
     for ch in s:
         f = cjk if is_korean(ch) else latin
@@ -393,9 +428,28 @@ def rich_text(img, xy, s, latin, cjk, color):
             runs[-1][0] += ch
         else:
             runs.append([ch, f])
+    return runs
 
+
+def has_glyph(f, ch):
+    """PIL exposes no cmap, so compare bitmaps: a character that draws exactly like a
+    codepoint nothing assigns is the .notdef box. Tofu is a silent failure otherwise —
+    this is what caught ㅇ and ㄴ being routed to SF Pro, which has no jamo."""
+    def bits(c):
+        m = f.getmask(c)
+        return bytes(m) if m.size[0] else b""
+
+    return bits(ch) != bits("￿")
+
+
+def rich_width(s, latin, cjk):
+    return sum(f.getlength(run) for run, f in font_runs(s, latin, cjk)) / S
+
+
+def rich_text(img, xy, s, latin, cjk, color):
+    """Draws `s` run by run. Returns the x it ended at, which is where the caret goes."""
     x = xy[0]
-    for run, f in runs:
+    for run, f in font_runs(s, latin, cjk):
         text(img, (x, xy[1]), run, f, color)
         x += f.getlength(run) / S
     return x
@@ -641,8 +695,16 @@ def frame(t, shot, accent, fonts, L):
     # --- one text field, two keyboards
     tx, a = field[0] + 14, st["text_alpha"]
     # Cap height is a little under 3/4 of the size, which is close enough to centre it.
-    end = rich_text(img, (tx, field[1] + (FIELD_H + FIELD_TEXT * 0.72) / 2), st["text"],
+    base = field[1] + (FIELD_H + FIELD_TEXT * 0.72) / 2
+    end = rich_text(img, (tx, base), st["text"],
                     fonts["field"], fonts["field_ko"], blend(INK, FIELD_FILL, a))
+    # An input method underlines the syllable it is still building. Only the Korean leg
+    # ever has one, and it is the visible difference between composing and typed.
+    if st["composing"] and a > 0.5:
+        settled = st["text"][:-st["composing"]]
+        ux = tx + rich_width(settled, fonts["field"], fonts["field_ko"])
+        img.paste(INK, (int(ux * S), int((base + COMPOSE_DROP) * S)),
+                  dim(rrect((end - ux, COMPOSE_RULE), 0), COMPOSE_RULE_A))
     if a > 0.5 and (st["struck"] or (t % 1.0) < 0.55):
         cx = end + 2
         img.paste(INK, (int(cx * S), int((field[1] + (FIELD_H - CARET_H) / 2) * S)),
@@ -735,8 +797,8 @@ def demo():
     # Every keyboard must actually get a turn: all three codes reached, all three rows
     # railed, and each leg typing on the device it claims.
     assert {DEVICES[to]["code"] for _, _, to in SWITCHES} == {d["code"] for d in DEVICES}
-    for start, device, part in LEG_TIMES:
-        mid_leg = state(start + len(part) * CHAR_S / 2)
+    for start, device, steps in LEG_TIMES:
+        mid_leg = state(start + len(steps) * CHAR_S / 2)
         assert mid_leg["chips"][device] > 0.5, (device, mid_leg["chips"])
         assert abs(mid_leg["rail"] - RAIL_ROW_Y[DEVICES[device]["row"]]) < 0.5, device
         assert mid_leg["codes"][1] == DEVICES[device]["code"], device
@@ -752,12 +814,36 @@ def demo():
     # Only the Korean leg needs the fallback font, and it must actually be reached.
     assert any(is_korean(c) for c in FULL_TEXT), "nothing trilingual about this"
 
+    # Composition: the input method takes more keystrokes than the text has characters,
+    # every intermediate state is left composing, and the last one commits. A leg that
+    # ended still composing would leave the underline on screen for the rest of the loop.
+    for device, steps in LEGS:
+        assert steps[-1][1] == 0, (device, "leg ends mid-composition")
+        assert all(shown for shown, _ in steps), (device, "empty keystroke")
+        if any(is_korean(c) for c in steps[-1][0]):
+            assert len(steps) > len(steps[-1][0]), "syllables revealed, not composed"
+            assert all(c for _, c in steps[:-1]), "composition not underlined"
+        else:
+            assert not any(c for _, c in steps), (device, "plain layout composing")
+
+    # And the underline must be gone by the time the loop rests on the payoff.
+    assert state(OG_START)["composing"] == 0, "card would open mid-composition"
+
     # The lens has to contain both edges that identify it as the menu bar.
     assert VIEW_TOP < BADGE_Y and VIEW_TOP + VIEW > PANEL_Y, (VIEW_TOP, VIEW)
 
+    fonts = make_fonts()
+
+    # Every character typed must have a real glyph in whichever font will draw it. The
+    # failure mode is a tofu box in the finished GIF, not an error at render time.
+    for _, steps in LEGS:
+        for shown, _ in steps:
+            for run, f in font_runs(shown, fonts["field"], fonts["field_ko"]):
+                for ch in run:
+                    assert has_glyph(f, ch), f"no glyph for {ch!r} (U+{ord(ch):04X})"
+
     # The card's copy is hand-broken into lines, so measure them: silently running
     # under the scene is the one way this card can go out wrong.
-    fonts = make_fonts()
     card_spec = next(s for s in VARIANTS.values() if s.get("card"))
     room = og_text_width(layout(card_spec["callout"],
                                 chip_width(fonts["chip"]))["size"][0])
