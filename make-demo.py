@@ -10,14 +10,15 @@ plates trading places over 0.3s on a smoothstep, alphas crossing 1.0<->0.4, the 
 code knocked out by the midpoint and the new one knocked in after it. If the mark
 changes in AppState.swift, it changes here too.
 
-The loop switches keyboard and back again, so it seams cleanly and shows the mark
-animating in both directions.
+The loop types a sentence on each of the three keyboards the popover lists — U.S.,
+German, 2-Set Korean — then switches back to the first, so it seams cleanly and shows
+the mark animating between every pair.
 
 Everything is laid out in points (the 1x sizes the app and the site use) and rendered
 at 2x. Vector shapes go through supersampled masks because ImageDraw doesn't
 antialias; text comes off FreeType, which does.
 
-    python3 make-demo.py                # both variants
+    python3 make-demo.py                # every variant
     python3 make-demo.py demo-no-loupe  # just one
     python3 make-demo.py --check        # self-check, renders nothing
 """
@@ -59,6 +60,9 @@ SHADOW_A = 0.12
 
 SFNS = "/System/Library/Fonts/SFNS.ttf"
 SFMONO = "/System/Library/Fonts/SFNSMono.ttf"    # the page's body voice
+# SF Pro has no Hangul — it renders tofu — and PIL does no font fallback, so the
+# Korean leg of the typing needs the font macOS itself falls back to.
+SFKOREAN = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
 
 # ---------------------------------------------------------------- geometry (points)
 M = 30                          # page margin
@@ -86,7 +90,9 @@ CARET_H = 20
 
 # The keyboards carry no surface of their own — ink versus grey and the typing
 # animation say which one is live — so they need air between them instead.
-CHIP_H, CHIP_GAP, CHIP_LABEL_GAP = 46, 36, 13
+# Three of them now, so the air between comes down a little to keep the row inside
+# the narrower canvas; still enough that they don't clump without surfaces.
+CHIP_H, CHIP_GAP, CHIP_LABEL_GAP = 46, 30, 13
 
 FIELD_TOP_GAP = 78              # the popover belongs up by the bar, not by the field
 CHIP_TOP_GAP = 22               # tighter than the gap above: these type into it
@@ -130,29 +136,60 @@ CALLOUT_ROOM = 60               # extra canvas width the lens needs beside the p
 # it can only do that where the bar is empty, which is everywhere left of the clock.
 LENS_BAR_OVERLAP = 0.5
 
-# The two keyboards being typed on, in panel row order. The panel lists a third
-# (MX Keys) that is connected but idle — which is the honest picture.
-# "source" is spelled the way the popover's picker and macOS itself spell it.
+# All three keyboards the popover lists, in its row order. `name` is abbreviated the
+# way the popover itself truncates the internal keyboard; `code` is what AppState puts
+# in the menu bar (the input source's first language, uppercased); `source` is spelled
+# the way the picker and macOS spell it.
 DEVICES = [
     {"name": "Apple Internal", "row": 0, "code": "DE", "source": "German"},
     {"name": "Keychron K2", "row": 1, "code": "EN", "source": "U.S."},
+    {"name": "MX Keys", "row": 2, "code": "KO", "source": "2-Set Korean"},
 ]
-START, SWITCHED = 1, 0          # indices into DEVICES
 
 # ---------------------------------------------------------------- script
-# One text field, two keyboards. "Grüße" is the payoff: a U.S. layout cannot
-# produce ü or ß, so the switch shows up in the output and not just in the UI.
-TYPED = ["Hello ", "Grüße!"]
+# One text field, three keyboards, one sentence per layout. Each leg is the payoff for
+# the one before it: a U.S. layout cannot produce ü or ß, and neither can produce 안녕.
+# ponytail: the Korean leg reveals finished syllables. 2-Set Korean really composes
+# them from jamo across several keystrokes, which is a beat this loop does not have
+# room for. Model it properly if the demo ever slows down enough to show it.
+LEGS = [
+    (1, "Hello "),              # Keychron K2 — U.S.
+    (0, "Grüße! "),             # Apple Internal — German
+    (2, "안녕!"),                # MX Keys — 2-Set Korean
+]
+FULL_TEXT = "".join(part for _, part in LEGS)
+
 CHAR_S = 0.105                  # seconds per keystroke
 SWITCH_S = 0.30                 # AppState.animateIcon runs ~0.3s
 HAND_LEAD, HAND_S = 0.17, 0.14  # the hand moves this far ahead of the app reacting
+HOLD_IN = 0.50                  # beat before the first keystroke
+HOLD_SETTLE = 0.25              # after a switch, before typing resumes
+HOLD_BEFORE = 0.35              # after typing, before the hand moves on
+HOLD_OUT = 1.20                 # time to read the finished sentence
+TAIL = 0.15
 
-T_TYPE1 = 0.50                                                  # opening beat
-T_SWITCH = T_TYPE1 + len(TYPED[0]) * CHAR_S + 0.35
-T_TYPE2 = T_SWITCH + SWITCH_S + 0.25
-T_TYPED = T_TYPE2 + len(TYPED[1]) * CHAR_S                      # both parts on screen
-T_RETURN = T_TYPED + 1.20                                       # time to read it
-DURATION = T_RETURN + SWITCH_S + 0.15
+
+def build_schedule():
+    """Absolute times for the loop: when each leg starts typing, and every switch —
+    including the closing one back to the first keyboard, which is what makes the loop
+    seam. Derived rather than written out, so adding a fourth leg costs one line."""
+    legs, switches, t = [], [], HOLD_IN
+    for i, (device, part) in enumerate(LEGS):
+        if i:
+            switches.append((t, LEGS[i - 1][0], device))
+            t += SWITCH_S + HOLD_SETTLE
+        legs.append((t, device, part))
+        t += len(part) * CHAR_S
+        if i < len(LEGS) - 1:
+            t += HOLD_BEFORE
+    t_typed = t
+    t_return = t + HOLD_OUT
+    switches.append((t_return, LEGS[-1][0], LEGS[0][0]))
+    return legs, switches, t_typed, t_return
+
+
+LEG_TIMES, SWITCHES, T_TYPED, T_RETURN = build_schedule()
+DURATION = T_RETURN + SWITCH_S + TAIL
 
 # ---------------------------------------------------------------- the share card
 # og.html's layout and type, redrawn here so the animated card is a sibling of the
@@ -186,28 +223,43 @@ def jitter(i):
     return (((i * 2654435761) % 1000) / 1000 - 0.5) * 0.055
 
 
+def latest(items, ok):
+    """The last item satisfying `ok`; SWITCHES is in time order, so that's the current
+    one. None before the first."""
+    found = None
+    for item in items:
+        if ok(item):
+            found = item
+    return found
+
+
 def state(t):
     """Everything time-dependent, resolved once per frame.
 
     `swap` drives the mark and the rail together, since in the app they are one
-    event: the typing device changed. `hand` runs slightly ahead of it.
+    event: the typing device changed. `hand` runs slightly ahead of it, so around a
+    switch the two are looking at different events.
     """
     out, struck = "", False
-    for start, part in zip((T_TYPE1, T_TYPE2), TYPED):
+    for start, _, part in LEG_TIMES:
         for i, ch in enumerate(part):
             at = start + i * CHAR_S + jitter(i + int(start * 100))
             if t >= at:
                 out += ch
                 struck = struck or (t - at) < 0.09
 
-    if t < T_RETURN:                            # start keyboard -> switched
-        when, frm, to = T_SWITCH, START, SWITCHED
-    else:                                       # and back, to close the loop
-        when, frm, to = T_RETURN, SWITCHED, START
-    swap = smoothstep((t - when) / SWITCH_S)
+    # Before the first switch there is nothing to animate from, so the opening state is
+    # the first keyboard already settled — which is also where the loop closes.
+    first = LEGS[0][0]
+    mark = latest(SWITCHES, lambda s: s[0] <= t)
+    at, frm, to = mark if mark else (t, first, first)
+    swap = smoothstep((t - at) / SWITCH_S) if mark else 1.0
+
     # The hand reaches the other keyboard just before the app can react to it, so
     # the GIF reads as cause and effect rather than the panel changing by itself.
-    hand = smoothstep((t - (when - HAND_LEAD)) / HAND_S)
+    reach = latest(SWITCHES, lambda s: s[0] - HAND_LEAD <= t)
+    h_at, h_frm, h_to = reach if reach else (t, first, first)
+    hand = smoothstep((t - (h_at - HAND_LEAD)) / HAND_S) if reach else 1.0
 
     return {
         "text": out,
@@ -218,8 +270,9 @@ def state(t):
         # Snaps, because the app's row rail is a plain boolean with no animation —
         # only the status item mark animates.
         "rail": RAIL_ROW_Y[DEVICES[to if swap > 0 else frm]["row"]],
-        # How active each chip is, 0-1.
-        "chips": [1 - hand if i == frm else hand if i == to else 0.0
+        # How active each chip is, 0-1. `h_to` is tested first so that the opening
+        # state, where from and to are the same keyboard, reads as fully arrived.
+        "chips": [hand if i == h_to else 1 - hand if i == h_frm else 0.0
                   for i in range(len(DEVICES))],
         # The field empties as the loop returns, so the seam isn't a hard cut.
         "text_alpha": 1 - (smoothstep((t - T_RETURN) / SWITCH_S) if t >= T_RETURN else 0),
@@ -234,7 +287,9 @@ def layout(callout, chip_w):
     w = 560 + (CALLOUT_ROOM if callout else 0)
     field_top = PANEL_Y + PANEL_H + FIELD_TOP_GAP
     row = field_top + FIELD_H + CHIP_TOP_GAP
-    x0 = M + ((w - 2 * M) - (2 * chip_w + CHIP_GAP)) / 2    # centred under the field
+    n = len(DEVICES)
+    row_w = n * chip_w + (n - 1) * CHIP_GAP
+    x0 = M + ((w - 2 * M) - row_w) / 2                      # centred under the field
 
     spot = None
     if callout:
@@ -249,7 +304,7 @@ def layout(callout, chip_w):
         "bar": (M, M, w - M, M + BAR_H),
         "panel": (w - M - PANEL_W, PANEL_Y),
         "field": (M + FIELD_INSET, field_top, w - M - FIELD_INSET, field_top + FIELD_H),
-        "chips": [(x0 + i * (chip_w + CHIP_GAP), row) for i in range(2)],
+        "chips": [(x0 + i * (chip_w + CHIP_GAP), row) for i in range(n)],
     }
 
 
@@ -317,6 +372,33 @@ def font(size, weight="Regular"):
 
 def mono(size):
     return ImageFont.truetype(SFMONO, int(size * S))
+
+
+def korean(size):
+    return ImageFont.truetype(SFKOREAN, int(size * S), index=0)
+
+
+def is_korean(ch):
+    """Hangul syllables and jamo. Latin-1 (ü, ß) and punctuation stay with SF Pro."""
+    return 0xAC00 <= ord(ch) <= 0xD7A3 or 0x1100 <= ord(ch) <= 0x11FF
+
+
+def rich_text(img, xy, s, latin, cjk, color):
+    """Draws `s` run by run, switching font where SF Pro has no glyph. Returns the x it
+    ended at, which is where the caret goes."""
+    runs = []
+    for ch in s:
+        f = cjk if is_korean(ch) else latin
+        if runs and runs[-1][1] is f:
+            runs[-1][0] += ch
+        else:
+            runs.append([ch, f])
+
+    x = xy[0]
+    for run, f in runs:
+        text(img, (x, xy[1]), run, f, color)
+        x += f.getlength(run) / S
+    return x
 
 
 def og_scene_left(scene_w):
@@ -559,10 +641,10 @@ def frame(t, shot, accent, fonts, L):
     # --- one text field, two keyboards
     tx, a = field[0] + 14, st["text_alpha"]
     # Cap height is a little under 3/4 of the size, which is close enough to centre it.
-    text(img, (tx, field[1] + (FIELD_H + FIELD_TEXT * 0.72) / 2), st["text"],
-         fonts["field"], blend(INK, FIELD_FILL, a))
+    end = rich_text(img, (tx, field[1] + (FIELD_H + FIELD_TEXT * 0.72) / 2), st["text"],
+                    fonts["field"], fonts["field_ko"], blend(INK, FIELD_FILL, a))
     if a > 0.5 and (st["struck"] or (t % 1.0) < 0.55):
-        cx = tx + fonts["field"].getlength(st["text"]) / S + 2
+        cx = end + 2
         img.paste(INK, (int(cx * S), int((field[1] + (FIELD_H - CARET_H) / 2) * S)),
                   rrect((1.5, CARET_H), 0.75))
     return img
@@ -620,7 +702,8 @@ def make_fonts():
         return f
 
     return {"bar": font(14), "chip": font(13, "Medium"),
-            "field": font(FIELD_TEXT), "source": font(CALLOUT_TEXT, "Medium"),
+            "field": font(FIELD_TEXT), "field_ko": korean(FIELD_TEXT),
+            "source": font(CALLOUT_TEXT, "Medium"),
             "glyph": mark_glyph(1), "glyph_big": mark_glyph(CALLOUT_SCALE),
             "og_brand": font(OG_BRAND, "Semibold"), "og_title": font(OG_TITLE, "Semibold"),
             "og_slogan": mono(OG_SLOGAN), "og_meta": mono(OG_META)}
@@ -646,15 +729,28 @@ def demo():
     assert abs(a["rail"] - b["rail"]) < 0.5, (a["rail"], b["rail"])
     assert a["chips"] == b["chips"], (a["chips"], b["chips"])
 
-    mid = state((T_TYPE2 + T_RETURN) / 2)
-    assert mid["text"] == "".join(TYPED), mid["text"]
-    assert a["codes"][0] == "EN" and mid["codes"][1] == "DE", (a["codes"], mid["codes"])
-    assert abs(mid["rail"] - RAIL_ROW_Y[0]) < 0.5, mid["rail"]
+    mid = state((T_TYPED + T_RETURN) / 2)
+    assert mid["text"] == FULL_TEXT, mid["text"]
 
-    # The chip must flip at least a frame before the app reacts, or the switch looks
-    # like the panel deciding on its own.
-    lead = state(T_SWITCH - 1.5 / FPS)
-    assert lead["chips"][SWITCHED] > 0.5 and lead["swap"] == 0, lead["chips"]
+    # Every keyboard must actually get a turn: all three codes reached, all three rows
+    # railed, and each leg typing on the device it claims.
+    assert {DEVICES[to]["code"] for _, _, to in SWITCHES} == {d["code"] for d in DEVICES}
+    for start, device, part in LEG_TIMES:
+        mid_leg = state(start + len(part) * CHAR_S / 2)
+        assert mid_leg["chips"][device] > 0.5, (device, mid_leg["chips"])
+        assert abs(mid_leg["rail"] - RAIL_ROW_Y[DEVICES[device]["row"]]) < 0.5, device
+        assert mid_leg["codes"][1] == DEVICES[device]["code"], device
+
+    # The hand must reach each keyboard a frame or more before the app reacts: the chip
+    # has arrived while the mark still shows the keyboard being left. (Not `swap == 0` —
+    # before the first switch there is nothing to animate from, so it sits settled.)
+    for at, frm, to in SWITCHES:
+        lead = state(at - 1.5 / FPS)
+        assert lead["chips"][to] > 0.5, (at, lead["chips"])
+        assert lead["codes"][1] == DEVICES[frm]["code"], (at, lead["codes"])
+
+    # Only the Korean leg needs the fallback font, and it must actually be reached.
+    assert any(is_korean(c) for c in FULL_TEXT), "nothing trilingual about this"
 
     # The lens has to contain both edges that identify it as the menu bar.
     assert VIEW_TOP < BADGE_Y and VIEW_TOP + VIEW > PANEL_Y, (VIEW_TOP, VIEW)
@@ -676,10 +772,12 @@ def demo():
              + len(OG_SLOGAN_LINES) * OG_SLOGAN * OG_SLOGAN_LEAD + OG_SLOGAN_BELOW
              + OG_META)
     assert block <= OG_H - 2 * 24, block
-    assert state(OG_START)["text"] == "".join(TYPED), "card must open on the payoff"
+    assert state(OG_START)["text"] == FULL_TEXT, "card must open on the payoff"
 
     for name, spec in VARIANTS.items():
-        L = layout(spec["callout"], 180)
+        # The real measured width, not a stand-in: with three keyboards the row is
+        # close enough to the canvas that a guess would check the wrong thing.
+        L = layout(spec["callout"], chip_width(fonts["chip"]))
         w, h = L["size"]
         assert L["field"][2] <= w - M and L["field"][3] <= h - M, name
         for cx, cy in L["chips"]:
