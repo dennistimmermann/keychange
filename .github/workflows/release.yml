@@ -176,3 +176,28 @@ jobs:
           XML
           cat appcast.xml
           gh release upload "$GITHUB_REF_NAME" appcast.xml
+
+      # The cask lives in dennistimmermann/homebrew-tap, so `brew install --cask keychange`
+      # keeps handing out the previous version until it is bumped. Last, because a stale
+      # cask is only worth failing the run over once the release itself is complete.
+      # HOMEBREW_TAP_TOKEN is a fine-grained PAT scoped to that one repo, Contents: write.
+      - name: Check out the tap
+        uses: actions/checkout@v4
+        with:
+          repository: dennistimmermann/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Bump the Homebrew cask
+        working-directory: homebrew-tap
+        run: |
+          SHA=$(shasum -a 256 ../Keychange.dmg | cut -d' ' -f1)
+          sed -i '' -e "s|^  version .*|  version \"$VERSION\"|" \
+                    -e "s|^  sha256 .*|  sha256 \"$SHA\"|" Casks/keychange.rb
+          cat Casks/keychange.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Re-running the workflow for a tag already bumped leaves nothing to commit,
+          # which `git commit` treats as an error.
+          git diff --quiet || git commit -am "Update Keychange to $VERSION"
+          git push
