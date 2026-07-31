@@ -60,7 +60,7 @@ keyboards have similar names.
 
 | Setting | What it does |
 |---|---|
-| **Intercept keystrokes** | Normally the very first character after switching keyboards still uses the old layout. This fixes it. Needs the Accessibility permission; off by default. |
+| **Switch layout** | When the switch lands. **After key press**: the character you typed to get there still uses the old layout. **Before key press**: Keychange intercepts the press and fixes that character — every key press in every app except password fields passes through it. Needs the Accessibility permission. |
 | **On external layout change** | What happens when you change the input source yourself. **Disable**: Keychange turns off until you turn it back on. **Pause**: turns off, then resumes by itself once the input source matches your keyboard again. **Ignore**: your choice stays until you switch keyboards. **Reset**: your choice stays until the next key press. |
 | **Check for updates automatically** | Looks for new releases on GitHub and offers to install them. This check is the only network request the app makes. |
 | **Launch at login** | Starts Keychange when you log in. |
@@ -78,7 +78,7 @@ xcodebuild -project Keychange.xcodeproj -scheme Keychange -configuration Release
 An `IOHIDManager` watches keyboard devices and reports which one produced each key event; a device
 change looks up that keyboard's mapping and calls `TISSelectInputSource`. Because the keystroke and
 the switch race each other, the first character normally still belongs to the old layout — that is
-what "Intercept keystrokes" fixes, using a `CGEventTap` that re-translates the character with the
+what "Switch layout → Before key press" fixes, using a `CGEventTap` that re-translates the character with the
 target layout (`UCKeyTranslate`), or briefly withholds the key press when switching to an input
 method that composes from key codes at delivery time.
 

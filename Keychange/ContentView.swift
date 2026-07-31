@@ -24,6 +24,11 @@ struct ContentView: View {
 
     @State private var cogHovered = false
 
+    /// Shown when the switch timing is *changed* to "Before key press" — not merely when it is
+    /// selected, so a launch with it already on says nothing. Dismissed by clicking it, and
+    /// nothing remembers that: changing to "Before key press" again brings it back.
+    @State private var showInterceptNotice = false
+
 
     /// The picker's tag for "Hidden". Not a source ID (those are reverse-DNS).
     private static let hiddenTag = "hidden"
@@ -58,9 +63,11 @@ struct ContentView: View {
 
             if showsEmptyState {
                 emptyState
-            } else if state.tapFailed {
-                accessibilityPrompt
             } else {
+                // Above the list rather than replacing it: switching still works, it just
+                // lands after the key press until access is granted.
+                if state.tapFailed { accessibilityPrompt }
+
                 deviceList
                     // The prompts have their own generous padding and the settings
                     // rows bring theirs, so only the bare list needs this back.
@@ -134,16 +141,18 @@ struct ContentView: View {
             .font(.system(size: 12))
     }
 
-    /// Notice under the header. With an action the whole box is clickable.
-    private func infoBox(_ text: String, action: (() -> Void)? = nil) -> some View {
+    /// Notice under the header. With an action the whole box is clickable. `warning` tints it
+    /// yellow, for the one notice that states a cost rather than a state.
+    private func infoBox(_ text: String, warning: Bool = false, action: (() -> Void)? = nil) -> some View {
         Button { action?() } label: {
             Text(text)
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(warning ? AnyShapeStyle(Color(nsColor: .labelColor)) : AnyShapeStyle(.secondary))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+                .background(warning ? AnyShapeStyle(Color.yellow.opacity(0.22)) : AnyShapeStyle(.quaternary.opacity(0.5)),
+                            in: RoundedRectangle(cornerRadius: 6))
                 .contentShape(RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
@@ -269,7 +278,7 @@ struct ContentView: View {
 
     private var accessibilityPrompt: some View {
         prompt(symbol: "hand.raised", title: "Accessibility access needed") {
-            promptBody("Keychange needs Accessibility access to correct the first character you type after switching keyboards.",
+            promptBody("Keychange needs Accessibility access to intercept key presses to change the layout early.",
                        action: "Allow Accessibility…", state.openAccessibilitySettings)
         }
     }
@@ -314,8 +323,20 @@ struct ContentView: View {
 
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 1) {
-            settingsToggle("Intercept keystrokes", isOn: $state.instantSwitching,
-                           hint: "Fixes the first character, which otherwise still uses the previous layout. To do that Keychange must intercept every key press you make, system-wide, before the app you are typing in receives it — it rewrites the character, and briefly withholds the key press when switching to an input method like Korean. Requires Accessibility access. Leave this off unless the wrong first character bothers you.")
+            settingsPicker("Switch layout", selection: switchTimingBinding,
+                           hint: """
+                                 When Keychange applies the new keyboard's input source.
+                                 After key press: Keychange only watches which keyboard you are typing on and needs no further access, but the character that triggered the switch still uses the previous layout.
+                                 Before key press: Keychange intercepts every key press you make, before the app you are typing in receives it — it rewrites the character, and briefly withholds the key press when switching to another input method. Needs Accessibility access.
+                                 """)
+            if showInterceptNotice {
+                infoBox("In this mode Keychange reads and may alter every key press, except in password fields. Needs Accessibility access.",
+                        warning: true) {
+                    showInterceptNotice = false
+                }
+                // infoBox insets by 3; the settings rows sit at 9.
+                .padding(.horizontal, 6)
+            }
             settingsPicker("On external layout change", selection: $state.externalChangeAction,
                            hint: """
                                  What Keychange does when you change the input source yourself — via the Input menu or a keyboard shortcut.
@@ -367,9 +388,21 @@ struct ContentView: View {
         .help(hint ?? "")
     }
 
+    /// Writes through to `AppState`, and raises the notice as a side effect of the change —
+    /// which is what keeps it off the screen at launch.
+    private var switchTimingBinding: Binding<SwitchTiming> {
+        Binding(
+            get: { state.switchTiming },
+            set: {
+                showInterceptNotice = ($0 == .before)
+                state.switchTiming = $0
+            }
+        )
+    }
+
     /// Same row as `settingsToggle`, with a menu picker in place of the switch.
-    private func settingsPicker(_ title: String, selection: Binding<ExternalChangeAction>,
-                                hint: String? = nil) -> some View {
+    private func settingsPicker<Option: SettingsOption>(_ title: String, selection: Binding<Option>,
+                                                        hint: String? = nil) -> some View {
         HStack(spacing: 8) {
             HStack(spacing: 4) {
                 Text(title)
@@ -383,8 +416,8 @@ struct ContentView: View {
             }
             Spacer(minLength: 8)
             Picker(title, selection: selection) {
-                ForEach(ExternalChangeAction.allCases) { action in
-                    Text(action.title).tag(action)
+                ForEach(Array(Option.allCases)) { option in
+                    Text(option.title).tag(option)
                 }
             }
             .pickerStyle(.menu)

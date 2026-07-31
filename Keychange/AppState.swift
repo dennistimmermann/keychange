@@ -27,8 +27,13 @@ struct DeviceSetting {
     var hidden = false
 }
 
+/// A setting that is "pick one of a few named options" — all the settings row needs to know.
+protocol SettingsOption: Identifiable, Hashable, CaseIterable {
+    var title: String { get }
+}
+
 /// What to do when the input source is changed outside the app (system Input menu, shortcut).
-enum ExternalChangeAction: String, CaseIterable, Identifiable {
+enum ExternalChangeAction: String, SettingsOption {
     /// Turn off until the user re-enables by hand.
     case disable
     /// Turn off, but keep watching and resume once the source matches the active keyboard again.
@@ -40,6 +45,19 @@ enum ExternalChangeAction: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
+}
+
+/// When the switch to the new keyboard's input source lands, relative to the key press
+/// that triggered it.
+enum SwitchTiming: String, SettingsOption {
+    /// Switch once the press has been delivered — its character still uses the old layout.
+    case after
+    /// Intercept the press, switch, and fix the character before the app sees it.
+    /// Needs Accessibility.
+    case before
+
+    var id: String { rawValue }
+    var title: String { self == .after ? "After key press" : "Before key press" }
 }
 
 /// Sparkle normally reads `SUFeedURL` from Info.plist, but the project generates its
@@ -109,15 +127,16 @@ final class AppState: ObservableObject {
     @Published var externalChangeAction: ExternalChangeAction {
         didSet { defaults.set(externalChangeAction.rawValue, forKey: Key.externalChangeAction) }
     }
-    /// Switch from inside the key press (event tap) instead of after it, so the first
-    /// character is already in the new layout.
-    @Published var instantSwitching: Bool {
+    /// Whether to switch from inside the key press (event tap) instead of after it, so the
+    /// first character is already in the new layout.
+    @Published var switchTiming: SwitchTiming {
         didSet {
-            defaults.set(instantSwitching, forKey: Key.instantSwitching)
+            defaults.set(switchTiming.rawValue, forKey: Key.switchTiming)
             updateTap()
         }
     }
-    /// Set when instant switching is on but the tap could not be created.
+    /// Set when "Before key press" is selected but the tap could not be created — i.e. we
+    /// don't have Accessibility access.
     @Published private(set) var tapFailed = false
     @Published var launchAtLogin: Bool {
         didSet {
@@ -141,7 +160,7 @@ final class AppState: ObservableObject {
         static let isEnabled = "isEnabled"
         static let externalChangeAction = "externalChangeAction"
         static let autoDisabled = "autoDisabled"
-        static let instantSwitching = "instantSwitching"
+        static let switchTiming = "switchTiming"
     }
 
     private let defaults = UserDefaults.standard
@@ -170,6 +189,8 @@ final class AppState: ObservableObject {
     }
     /// Whether the status item currently shows the disabled mark (drives the toggle animation).
     private var iconShowsDisabled = false
+    /// The Accessibility prompt only appears once; after that the notice goes to Settings.
+    private var didPromptForAccessibility = false
 
     init() {
         // Sparkle's SUEnableAutomaticChecks defaults to off, and it would otherwise ask
@@ -192,7 +213,7 @@ final class AppState: ObservableObject {
         isEnabled = defaults.object(forKey: Key.isEnabled) as? Bool ?? true
         externalChangeAction = ExternalChangeAction(rawValue: defaults.string(forKey: Key.externalChangeAction) ?? "") ?? .ignore
         autoDisabled = ExternalChangeAction(rawValue: defaults.string(forKey: Key.autoDisabled) ?? "")
-        instantSwitching = defaults.bool(forKey: Key.instantSwitching)
+        switchTiming = SwitchTiming(rawValue: defaults.string(forKey: Key.switchTiming) ?? "") ?? .after
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
         refreshInputSources()
@@ -246,7 +267,16 @@ final class AppState: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
+    /// User-initiated, like `openInputMonitoringSettings`, and for the same reason: the prompt
+    /// is what registers the app in the Accessibility list (apps that never ask don't appear
+    /// there). It won't show a second time once dismissed, so from then on go to Settings,
+    /// where the checkbox is.
     func openAccessibilitySettings() {
+        if !didPromptForAccessibility, !AXIsProcessTrusted() {
+            didPromptForAccessibility = true
+            AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+            return
+        }
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
         NSWorkspace.shared.open(url)
     }
@@ -272,18 +302,16 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// The tap only runs while instant switching is on and we may switch at all.
-    /// An active tap needs Accessibility on top of Input Monitoring; like Input
-    /// Monitoring we only ever ask for it from a user action (this setting's toggle).
+    /// The tap only runs while "Before key press" is selected and we may switch at all.
     private func updateTap() {
-        guard instantSwitching, hasPermission else {
+        guard switchTiming == .before, hasPermission else {
             tap.stop()
             tapFailed = false
             return
         }
-        if !AXIsProcessTrusted() {
-            AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
-        }
+        // An active tap needs Accessibility on top of Input Monitoring, but picking an option
+        // must not throw a system dialog at you: `tapCreate` simply fails without it, which is
+        // what `tapFailed` reports. The popover's notice is then where access gets asked for.
         tapFailed = !tap.start()
     }
 
