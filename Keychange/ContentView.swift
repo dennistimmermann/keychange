@@ -240,7 +240,9 @@ struct ContentView: View {
             .pickerStyle(.menu)
             .labelsHidden()
             .controlSize(.small)
-            .fixedSize()
+            // Not intrinsic: a popup button is as wide as its widest *menu item*, so one long
+            // source name ("U.S. with Umlauts") widens the whole column. Long names truncate.
+            .frame(width: 130)
             .padding(.leading, 8)
         }
         .padding(.vertical, 6)
