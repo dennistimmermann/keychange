@@ -126,11 +126,12 @@
           <option selected>Before key press</option>
         </select>
       </label>
-      <h3>The first character, already right</h3>
+      <h3>Switch early, or switch light</h3>
       <p>Keychange can switch on either side of the key event:</p>
       <ul class="modes">
-        <li><em>After key press</em> — detection happens just after a key has been sent, as a
-            consequence the first character still prints in the old layout.</li>
+        <li><em>After key press</em> — detection happens just after a key has been sent. Less
+            intrusive, but as a consequence the very first character will still print in the
+            old layout.</li>
         <li><em>Before key press</em> — Keychange instead intercepts the key press and changes
             the layout on the fly, so that first character is right too.</li>
       </ul>
