@@ -43,7 +43,7 @@
          the moment your hands do.</p>
       <div class="cta">
         <a class="button" href="https://github.com/dennistimmermann/keychange/releases/latest/download/Keychange.dmg">Download for macOS</a>
-        <p class="cta-note">Free · MIT · macOS 14+<br>Universal</p>
+        <p class="cta-note"><span id="version"></span>Free · MIT<br>macOS 14+ · Universal</p>
       </div>
 
       <a class="kofi" href="https://ko-fi.com/tmrmn">
@@ -144,6 +144,16 @@
   </footer>
 
 </div>
+
+<!-- The latest tag, in front of the download note. GitHub's API is the only source
+     that is right the moment a release is published; if it is unreachable or rate
+     limited the note simply stays as it is. -->
+<script>
+fetch('https://api.github.com/repos/dennistimmermann/keychange/releases/latest')
+  .then(r => r.json())
+  .then(r => { if (r.tag_name) document.getElementById('version').textContent = r.tag_name + ' · '; })
+  .catch(() => {});
+</script>
 
 </body>
 </html>
