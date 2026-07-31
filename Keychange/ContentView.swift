@@ -147,7 +147,7 @@ struct ContentView: View {
         Button { action?() } label: {
             Text(text)
                 .font(.system(size: 11))
-                .foregroundStyle(warning ? AnyShapeStyle(Color(nsColor: .labelColor)) : AnyShapeStyle(.secondary))
+                .foregroundStyle(warning ? .primary : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -365,9 +365,11 @@ struct ContentView: View {
         }
     }
 
-    /// `hint` adds an ⓘ marking the row as hoverable — the tooltip itself covers the whole row.
-    /// Settings-panel pattern: the switch is the control, the row itself is inert.
-    private func settingsToggle(_ title: String, isOn: Binding<Bool>, hint: String? = nil) -> some View {
+    /// The shared row shell: title (plus ⓘ when there's a `hint` — the tooltip itself covers
+    /// the whole row), a spacer, and the trailing control. Settings-panel pattern: the control
+    /// is the control, the row itself is inert.
+    private func settingsRow(_ title: String, hint: String? = nil,
+                             @ViewBuilder control: () -> some View) -> some View {
         HStack(spacing: 8) {
             HStack(spacing: 4) {
                 Text(title)
@@ -380,14 +382,20 @@ struct ContentView: View {
                 }
             }
             Spacer(minLength: 8)
+            control()
+        }
+        .padding(.vertical, 5)
+        .padding(.horizontal, 9)
+        .help(hint ?? "")
+    }
+
+    private func settingsToggle(_ title: String, isOn: Binding<Bool>, hint: String? = nil) -> some View {
+        settingsRow(title, hint: hint) {
             Toggle(title, isOn: isOn)
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .labelsHidden()
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 9)
-        .help(hint ?? "")
     }
 
     /// Writes through to `AppState`, and raises the notice as a side effect of the change —
@@ -405,20 +413,9 @@ struct ContentView: View {
     /// Same row as `settingsToggle`, with a menu picker in place of the switch.
     private func settingsPicker<Option: SettingsOption>(_ title: String, selection: Binding<Option>,
                                                         hint: String? = nil) -> some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 4) {
-                Text(title)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(nsColor: .labelColor))
-                if hint != nil {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            Spacer(minLength: 8)
+        settingsRow(title, hint: hint) {
             Picker(title, selection: selection) {
-                ForEach(Array(Option.allCases)) { option in
+                ForEach(Array(Option.allCases), id: \.self) { option in
                     Text(option.title).tag(option)
                 }
             }
@@ -427,9 +424,6 @@ struct ContentView: View {
             .controlSize(.small)
             .fixedSize()
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 9)
-        .help(hint ?? "")
     }
 
 }

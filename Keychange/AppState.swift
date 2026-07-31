@@ -28,7 +28,7 @@ struct DeviceSetting {
 }
 
 /// A setting that is "pick one of a few named options" — all the settings row needs to know.
-protocol SettingsOption: Identifiable, Hashable, CaseIterable {
+protocol SettingsOption: Hashable, CaseIterable {
     var title: String { get }
 }
 
@@ -43,7 +43,6 @@ enum ExternalChangeAction: String, SettingsOption {
     /// Forget the active device, so the next keystroke re-applies its mapping.
     case reset
 
-    var id: String { rawValue }
     var title: String { rawValue.capitalized }
 }
 
@@ -56,7 +55,6 @@ enum SwitchTiming: String, SettingsOption {
     /// Needs Accessibility.
     case before
 
-    var id: String { rawValue }
     var title: String { self == .after ? "After key press" : "Before key press" }
 }
 
@@ -127,8 +125,7 @@ final class AppState: ObservableObject {
     @Published var externalChangeAction: ExternalChangeAction {
         didSet { defaults.set(externalChangeAction.rawValue, forKey: Key.externalChangeAction) }
     }
-    /// Whether to switch from inside the key press (event tap) instead of after it, so the
-    /// first character is already in the new layout.
+    /// When the switch lands relative to the triggering key press — see `SwitchTiming`.
     @Published var switchTiming: SwitchTiming {
         didSet {
             defaults.set(switchTiming.rawValue, forKey: Key.switchTiming)
@@ -271,6 +268,10 @@ final class AppState: ObservableObject {
     /// is what registers the app in the Accessibility list (apps that never ask don't appear
     /// there). It won't show a second time once dismissed, so from then on go to Settings,
     /// where the checkbox is.
+    ///
+    /// ponytail: the flag is in-memory while the system's suppression of that prompt outlives
+    /// the launch, so the first click after a relaunch (still untrusted) does nothing visible
+    /// and the second opens Settings. Persist the flag if that ever matters.
     func openAccessibilitySettings() {
         if !didPromptForAccessibility, !AXIsProcessTrusted() {
             didPromptForAccessibility = true
@@ -421,7 +422,7 @@ final class AppState: ObservableObject {
 
     /// A pause lifts itself: as soon as the current source is the one the keyboard being
     /// typed on maps to, switching resumes. Called from every path that can make the two
-    /// meet — the source changing (observer) and the typing device changing (below).
+    /// meet — the source changing (observer) and the typing device changing (above).
     private func resumeIfMatched(_ deviceID: String?) {
         guard autoDisabled == .pause, let deviceID,
               let wanted = settings[deviceID]?.source, wanted == cachedSourceID else { return }
@@ -436,8 +437,8 @@ final class AppState: ObservableObject {
         if deviceChanged {
             lastActiveID = deviceID
             activeDeviceID = deviceID
+            resumeIfMatched(deviceID)
         }
-        resumeIfMatched(deviceID)
         // Only on a device change, like the HID path — otherwise this would re-assert the
         // mapping on every keystroke and undo an external change "Ignore" means to keep.
         guard isEnabled, deviceChanged, let wanted = settings[deviceID]?.source, wanted != cachedSourceID,
