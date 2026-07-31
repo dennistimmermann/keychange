@@ -46,7 +46,11 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
-            if state.autoDisabled {
+            if state.autoDisabled == .pause {
+                infoBox("Paused — the input source was changed outside Keychange. It resumes on its own once the input source matches your keyboard again, or click to resume now.") {
+                    state.isEnabled = true
+                }
+            } else if state.autoDisabled == .disable {
                 infoBox("Disabled — the input source was changed outside Keychange. Click to re-enable.") {
                     state.isEnabled = true
                 }
@@ -312,8 +316,14 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 1) {
             settingsToggle("Intercept keystrokes", isOn: $state.instantSwitching,
                            hint: "Fixes the first character, which otherwise still uses the previous layout. To do that Keychange must intercept every key press you make, system-wide, before the app you are typing in receives it — it rewrites the character, and briefly withholds the key press when switching to an input method like Korean. Requires Accessibility access. Leave this off unless the wrong first character bothers you.")
-            settingsToggle("Auto-disable on external switch", isOn: $state.autoDisableOnExternalSwitch,
-                           hint: "When you change the input source yourself — via the Input menu or a keyboard shortcut — Keychange turns itself off instead of switching back while you type. Turn the master switch on again to resume automatic switching.")
+            settingsPicker("On external layout change", selection: $state.externalChangeAction,
+                           hint: """
+                                 What Keychange does when you change the input source yourself — via the Input menu or a keyboard shortcut.
+                                 Disable: turn off until you turn it back on with the master switch.
+                                 Pause: turn off, then resume by itself once the input source matches the keyboard you are typing on again.
+                                 Ignore: keep your choice, and leave it until you switch to another keyboard.
+                                 Reset: keep your choice until the next key press, which restores the keyboard's own input source.
+                                 """)
             settingsToggle("Launch at login", isOn: $state.launchAtLogin)
             settingsToggle("Check for updates automatically", isOn: $state.automaticallyChecksForUpdates)
 
@@ -351,6 +361,36 @@ struct ContentView: View {
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .labelsHidden()
+        }
+        .padding(.vertical, 5)
+        .padding(.horizontal, 9)
+        .help(hint ?? "")
+    }
+
+    /// Same row as `settingsToggle`, with a menu picker in place of the switch.
+    private func settingsPicker(_ title: String, selection: Binding<ExternalChangeAction>,
+                                hint: String? = nil) -> some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(nsColor: .labelColor))
+                if hint != nil {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Spacer(minLength: 8)
+            Picker(title, selection: selection) {
+                ForEach(ExternalChangeAction.allCases) { action in
+                    Text(action.title).tag(action)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .controlSize(.small)
+            .fixedSize()
         }
         .padding(.vertical, 5)
         .padding(.horizontal, 9)

@@ -61,7 +61,7 @@ keyboards have similar names.
 | Setting | What it does |
 |---|---|
 | **Intercept keystrokes** | Normally the very first character after switching keyboards still uses the old layout. This fixes it. Needs the Accessibility permission; off by default. |
-| **Auto-disable on external switch** | If you change the input source yourself, Keychange steps aside instead of fighting you. Re-enable it from the popover. |
+| **On external layout change** | What happens when you change the input source yourself. **Disable**: Keychange turns off until you turn it back on. **Pause**: turns off, then resumes by itself once the input source matches your keyboard again. **Ignore**: your choice stays until you switch keyboards. **Reset**: your choice stays until the next key press. |
 | **Check for updates automatically** | Looks for new releases on GitHub and offers to install them. This check is the only network request the app makes. |
 | **Launch at login** | Starts Keychange when you log in. |
 

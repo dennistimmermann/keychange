@@ -27,6 +27,21 @@ struct DeviceSetting {
     var hidden = false
 }
 
+/// What to do when the input source is changed outside the app (system Input menu, shortcut).
+enum ExternalChangeAction: String, CaseIterable, Identifiable {
+    /// Turn off until the user re-enables by hand.
+    case disable
+    /// Turn off, but keep watching and resume once the source matches the active keyboard again.
+    case pause
+    /// Leave it be — the external source stays until another keyboard takes over.
+    case ignore
+    /// Forget the active device, so the next keystroke re-applies its mapping.
+    case reset
+
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+}
+
 /// Sparkle normally reads `SUFeedURL` from Info.plist, but the project generates its
 /// plist from build settings and Xcode only passes through the keys it knows — so the
 /// feed lives here instead.
@@ -87,13 +102,12 @@ final class AppState: ObservableObject {
             refreshMenuBarCode()
             // Cleared after refreshMenuBarCode so the re-enable animation still
             // sees the flag and fades the pause bars out.
-            if isEnabled { autoDisabled = false }
+            if isEnabled { autoDisabled = nil }
         }
     }
-    /// When on, a source change made outside the app (system Input menu, shortcut)
-    /// disables switching until the user re-enables it.
-    @Published var autoDisableOnExternalSwitch: Bool {
-        didSet { defaults.set(autoDisableOnExternalSwitch, forKey: Key.autoDisableOnExternalSwitch) }
+    /// How to react when the input source is changed outside the app.
+    @Published var externalChangeAction: ExternalChangeAction {
+        didSet { defaults.set(externalChangeAction.rawValue, forKey: Key.externalChangeAction) }
     }
     /// Switch from inside the key press (event tap) instead of after it, so the first
     /// character is already in the new layout.
@@ -125,7 +139,7 @@ final class AppState: ObservableObject {
     private enum Key {
         static let settings = "deviceSettings"
         static let isEnabled = "isEnabled"
-        static let autoDisableOnExternalSwitch = "autoDisableOnExternalSwitch"
+        static let externalChangeAction = "externalChangeAction"
         static let autoDisabled = "autoDisabled"
         static let instantSwitching = "instantSwitching"
     }
@@ -148,11 +162,11 @@ final class AppState: ObservableObject {
     /// Registry entry ID -> device id, for identifying the sender of a tapped event.
     private var senderIDs: [UInt64: String] = [:]
     private let tap = KeyEventTap()
-    /// Set when "Auto-disable on external switch" turned the app off (drives the pause mark
-    /// and the popover info box); cleared when the user re-enables. Persisted so a
-    /// relaunch keeps the reason.
-    @Published private(set) var autoDisabled = false {
-        didSet { defaults.set(autoDisabled, forKey: Key.autoDisabled) }
+    /// Which "on external layout change" action turned the app off — `.disable` or `.pause`,
+    /// nil when the app is not auto-off. Drives the popover info box, and the pause mark for
+    /// `.pause` only. Cleared when the user re-enables. Persisted so a relaunch keeps the reason.
+    @Published private(set) var autoDisabled: ExternalChangeAction? {
+        didSet { defaults.set(autoDisabled?.rawValue, forKey: Key.autoDisabled) }
     }
     /// Whether the status item currently shows the disabled mark (drives the toggle animation).
     private var iconShowsDisabled = false
@@ -176,8 +190,8 @@ final class AppState: ObservableObject {
             DeviceSetting(source: $0["source"] as? String, hidden: $0["hidden"] as? Bool ?? false)
         }
         isEnabled = defaults.object(forKey: Key.isEnabled) as? Bool ?? true
-        autoDisableOnExternalSwitch = defaults.bool(forKey: Key.autoDisableOnExternalSwitch)
-        autoDisabled = defaults.bool(forKey: Key.autoDisabled)
+        externalChangeAction = ExternalChangeAction(rawValue: defaults.string(forKey: Key.externalChangeAction) ?? "") ?? .ignore
+        autoDisabled = ExternalChangeAction(rawValue: defaults.string(forKey: Key.autoDisabled) ?? "")
         instantSwitching = defaults.bool(forKey: Key.instantSwitching)
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
@@ -362,6 +376,7 @@ final class AppState: ObservableObject {
         guard id != lastActiveID else { return }
         lastActiveID = id
         activeDeviceID = id
+        resumeIfMatched(id)
         // With the tap running it switches instead — from inside the keystroke, so the
         // first character is already in the new layout. Here we'd be a moment too late.
         // Exception: taps receive nothing while a password field holds secure input,
@@ -376,15 +391,28 @@ final class AppState: ObservableObject {
         select(wanted)
     }
 
+    /// A pause lifts itself: as soon as the current source is the one the keyboard being
+    /// typed on maps to, switching resumes. Called from every path that can make the two
+    /// meet — the source changing (observer) and the typing device changing (below).
+    private func resumeIfMatched(_ deviceID: String?) {
+        guard autoDisabled == .pause, let deviceID,
+              let wanted = settings[deviceID]?.source, wanted == cachedSourceID else { return }
+        isEnabled = true // didSet clears autoDisabled
+    }
+
     /// Called from inside the key press, so it must stay cheap: a dictionary lookup and
     /// a string compare, touching TIS only when a switch actually happens.
     private func decideTapKeyDown(senderID: UInt64?) -> KeyDecision {
         guard let deviceID = senderID.flatMap({ senderIDs[$0] }) ?? lastActiveID else { return .pass }
-        if deviceID != lastActiveID {
+        let deviceChanged = deviceID != lastActiveID
+        if deviceChanged {
             lastActiveID = deviceID
             activeDeviceID = deviceID
         }
-        guard isEnabled, let wanted = settings[deviceID]?.source, wanted != cachedSourceID,
+        resumeIfMatched(deviceID)
+        // Only on a device change, like the HID path — otherwise this would re-assert the
+        // mapping on every keystroke and undo an external change "Ignore" means to keep.
+        guard isEnabled, deviceChanged, let wanted = settings[deviceID]?.source, wanted != cachedSourceID,
               let source = Self.inputSource(id: wanted) else { return .pass }
 
         select(wanted)
@@ -450,7 +478,7 @@ final class AppState: ObservableObject {
             // a duplicate refresh must not snap a running fade to its end.
             if hadIcon, iconShowsDisabled { return }
             iconAnimation?.cancel()
-            let showMark = autoDisabled
+            let showMark = autoDisabled == .pause
             if hadIcon {
                 let code = menuBarCode
                 animateIcon { Self.enableFrame(t: $0, code: code, autoDisabledMark: showMark) }
@@ -482,7 +510,7 @@ final class AppState: ObservableObject {
         menuBarCode = newCode
 
         if iconShowsDisabled, hadIcon {
-            let showMark = autoDisabled
+            let showMark = autoDisabled == .pause
             animateIcon { Self.enableFrame(t: 1 - $0, code: newCode, autoDisabledMark: showMark) }
         } else if hadIcon, oldCode != newCode, oldCode != "—" {
             animateIcon { Self.swapFrame(t: $0, from: oldCode, to: newCode) }
@@ -615,7 +643,8 @@ final class AppState: ObservableObject {
     /// One frame of the enable/disable transition. t = 0: enabled badge (which is
     /// also the static mark). t = 1: disabled — same geometry, front plate dimmed
     /// to 40% with the code faded out. No motion, just opacity. `autoDisabledMark` fades
-    /// the pause bars in as the code fades out (auto-disabled by an external switch).
+    /// the pause bars in as the code fades out (paused by an external switch — a plain
+    /// "Disable" looks the same as the user flipping the master switch off).
     nonisolated private static func enableFrame(t: CGFloat, code: String, autoDisabledMark: Bool = false) -> NSImage {
         markImage { ctx in
             drawPlate(backPlate, alpha: 0.4, ctx)
@@ -641,23 +670,40 @@ final class AppState: ObservableObject {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                // A change we didn't make = the user switched by hand. Forget the
-                // active device so the next keystroke re-applies its mapping
-                // ("mapping wins") through the normal device-change path — no
-                // per-keystroke source checks needed. Optionally step aside
-                // entirely instead of correcting them.
+                // A change we didn't make = the user switched by hand, and
+                // `externalChangeAction` decides what that means.
                 self.cachedSourceID = self.currentSourceID
                 // The switch has landed — deliver anything the tap withheld for it.
                 self.tap.releaseHeldEvents()
                 if let current = self.cachedSourceID, current != self.lastKnownSourceID {
                     self.lastKnownSourceID = current
                     if current != self.lastAppSelected {
-                        self.lastActiveID = nil
-                        if self.autoDisableOnExternalSwitch, self.isEnabled {
-                            self.autoDisabled = true
-                            self.isEnabled = false
+                        switch self.externalChangeAction {
+                        case .ignore:
+                            break
+                        case .reset:
+                            // Forgetting the active device re-applies its mapping
+                            // ("mapping wins") through the normal device-change path — no
+                            // per-keystroke source checks needed.
+                            self.lastActiveID = nil
+                        case .disable:
+                            self.lastActiveID = nil
+                            if self.isEnabled {
+                                self.autoDisabled = .disable
+                                self.isEnabled = false
+                            }
+                        case .pause:
+                            // lastActiveID kept: resuming needs to know which keyboard we're on.
+                            if self.isEnabled {
+                                self.autoDisabled = .pause
+                                self.isEnabled = false
+                            }
                         }
                     }
+                    // Outside the lastAppSelected check on purpose: a paused app never calls
+                    // `select`, so lastAppSelected is still the mapped source — the very
+                    // switch back *to* it (the one that ends the pause) would be filtered out.
+                    self.resumeIfMatched(self.lastActiveID)
                 }
                 self.refreshInputSources()
                 self.refreshMenuBarCode()
