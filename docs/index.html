@@ -70,7 +70,7 @@
   <section id="features" class="cards">
     <article>
       <span class="eyebrow">01</span>
-      <h2>One layout per keyboard</h2>
+      <h3>One layout per keyboard</h3>
       <p>macOS can switch input sources — its name for keyboard layouts — per app or by shortcut,
          but never per keyboard. Keychange
          adds the missing option: assign a layout to each keyboard, and the system follows whichever
@@ -78,15 +78,56 @@
     </article>
     <article>
       <span class="eyebrow">02</span>
-      <h2>Switching becomes automatic</h2>
+      <h3>Switching becomes automatic</h3>
       <p>After launch, Keychange changes the input source for you the moment you go from one
          keyboard to another. Set it to start at login and it’s always there.</p>
     </article>
     <article>
       <span class="eyebrow">03</span>
-      <h2>Nothing is recorded</h2>
+      <h3>Nothing is recorded</h3>
       <p>Keychange has to see which keyboard you’re using, but it keeps nothing: what you type is
          never stored or sent anywhere. The code is public if you want to check.</p>
+    </article>
+  </section>
+
+  <!-- The two settings as the app shows them: a label and a real popup button, carrying
+       the app's own options. They open and stay open on whatever you pick — nothing on
+       the page reacts, they are here to show what the choices are. -->
+  <h2 class="section-head" id="settings">Options</h2>
+  <section class="settings">
+    <article>
+      <label class="setting">
+        <span class="setting-label">Switch layout</span>
+        <select class="popup">
+          <option>After key press</option>
+          <option selected>Before key press</option>
+        </select>
+      </label>
+      <h3>The first character, already right</h3>
+      <p>Source device detection usually only happens after the key has already been sent, so the
+         first character still prints in the layout you came from. <em>Before key press</em>
+         intercepts the key instead and changes the layout on the fly, so that first character is
+         right too.</p>
+    </article>
+    <article>
+      <label class="setting">
+        <span class="setting-label">On external layout change</span>
+        <select class="popup">
+          <option>Disable</option>
+          <option>Pause</option>
+          <option selected>Ignore</option>
+          <option>Reset</option>
+        </select>
+      </label>
+      <h3>Out of the way, on your terms</h3>
+      <p>Keychange can react to external changes. How is up to you:</p>
+      <ul class="modes">
+        <li><em>Disable</em> — off until you turn it back on.</li>
+        <li><em>Pause</em> — off, then back on by itself once the input source matches your
+            keyboard again.</li>
+        <li><em>Ignore</em> — your choice stands until you switch keyboards.</li>
+        <li><em>Reset</em> — your choice stands until your next key press.</li>
+      </ul>
     </article>
   </section>
 

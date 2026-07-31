@@ -174,6 +174,25 @@ h1 {
 }
 
 
+/* ---------- section head ----------
+   Set like the cards' 01/02/03 eyebrows: a marker in the page's own voice, not a
+   second headline competing with the hero. Only the settings carry one — the cards
+   speak for themselves. */
+
+.section-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--body);
+  margin: 0 0 14px;
+  padding: 0 40px;
+}
+/* The settings are their own group, so they get more air above than the cards
+   keep between themselves. */
+.cards + .section-head { margin-top: 36px; }
+
 /* ---------- feature cards ---------- */
 
 .cards {
@@ -191,7 +210,7 @@ h1 {
   box-shadow: 0 1px 2px rgba(20, 18, 30, 0.05);
 }
 .eyebrow { font-size: 10.5px; letter-spacing: 0.1em; color: var(--body); }
-.cards h2 {
+.cards h3 {
   font-family: var(--sans);
   font-size: 14.5px;
   font-weight: 600;
@@ -200,6 +219,69 @@ h1 {
 }
 .cards p { font-size: 12px; line-height: 1.6; margin: 0; }
 em { font-style: normal; color: var(--ink); }
+
+/* ---------- settings ----------
+   Two panels on the cards' surface, each opening with the setting as the app shows it:
+   the label on the left, a popup button on the right. */
+
+.settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 0 40px 48px;
+}
+
+.settings article {
+  background: var(--panel);
+  border: 0.5px solid var(--hairline);
+  border-radius: 11px;
+  padding: 20px;
+  box-shadow: 0 1px 2px rgba(20, 18, 30, 0.05);
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 0.5px solid var(--hairline);
+  font-family: var(--sans);
+  font-size: 13px;
+}
+.setting-label { color: var(--ink); }
+.setting .popup { flex: none; }
+
+/* AppKit's pop-up button: 6px radius on a grey fill, the label left, the chevron pair
+   right. A real <select>, so it opens with the app's own options in the browser's own
+   menu — cheaper than drawing one, and it works on touch. The chevron is a background
+   image because appearance:none takes the native one away with everything else. */
+.popup {
+  appearance: none;
+  font: inherit;
+  border: 0;
+  background: #E9E9EB
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='14' viewBox='0 0 9 14' fill='%231D1D1F' fill-opacity='.55'%3E%3Cpath d='M4.5 1 8 5H1z'/%3E%3Cpath d='M4.5 13 1 9h7z'/%3E%3C/svg%3E")
+    no-repeat right 9px center;
+  border-radius: 6px;
+  padding: 4px 27px 4px 9px;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.popup:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.settings h3 {
+  font-family: var(--sans);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 9px;
+}
+.settings p { font-size: 12px; line-height: 1.6; margin: 0; }
+
+.modes { font-size: 12px; line-height: 1.6; margin: 9px 0 0; padding-left: 16px; }
 
 /* ---------- footer ---------- */
 
@@ -289,5 +371,7 @@ footer {
   h1 { font-size: 32px; }
 
   .cards { grid-template-columns: 1fr; padding: 0 24px 32px; }
+  .settings { grid-template-columns: 1fr; padding: 0 24px 32px; }
+  .section-head { padding: 0 24px; }
   footer { padding: 16px 24px; }
 }
