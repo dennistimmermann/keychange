@@ -127,10 +127,13 @@
         </select>
       </label>
       <h3>The first character, already right</h3>
-      <p>Source device detection usually only happens after the key has already been sent, so the
-         first character still prints in the layout you came from. <em>Before key press</em>
-         intercepts the key instead and changes the layout on the fly, so that first character is
-         right too.</p>
+      <p>Keychange can switch on either side of the key event:</p>
+      <ul class="modes">
+        <li><em>After key press</em> — detection happens just after a key has been sent, as a
+            consequence the first character still prints in the old layout.</li>
+        <li><em>Before key press</em> — Keychange instead intercepts the key press and changes
+            the layout on the fly, so that first character is right too.</li>
+      </ul>
     </article>
     <article>
       <label class="setting">
