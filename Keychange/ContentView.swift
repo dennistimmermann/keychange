@@ -53,7 +53,7 @@ struct ContentView: View {
 
             if state.autoDisabled == .pause {
                 infoBox("Paused — the input source was changed by something other than Keychange. It resumes on its own once the input source matches your keyboard again.",
-                        symbol: "pause.circle", actionLabel: "Resume now") {
+                        symbol: "pause.circle", actionLabel: "Resume now", tint: .blue) {
                     state.isEnabled = true
                 }
             } else if state.autoDisabled == .disable {
