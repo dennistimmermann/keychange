@@ -116,9 +116,17 @@ final class AppState: ObservableObject {
         didSet {
             defaults.set(isEnabled, forKey: Key.isEnabled)
             refreshMenuBarCode()
-            // Cleared after refreshMenuBarCode so the re-enable animation still
-            // sees the flag and fades the pause bars out.
-            if isEnabled { autoDisabled = nil }
+            if isEnabled {
+                // Cleared after refreshMenuBarCode so the re-enable animation still sees the
+                // flag and fades the mark out.
+                autoDisabled = nil
+                // Correct the layout the moment switching comes back on, rather than leaving
+                // whatever we were switched off over until the next key press. The keyboard
+                // stays selected through all of this: it is still the one being typed on, and
+                // forgetting it would only cost the conflict check and Pause the one fact they
+                // need. A no-op when the layout already matches, which is the common case.
+                if let activeDeviceID { applySwitch(for: activeDeviceID) }
+            }
         }
     }
     /// How to react when the input source is changed outside the app.
@@ -162,15 +170,15 @@ final class AppState: ObservableObject {
 
     private let defaults = UserDefaults.standard
     private var manager: IOHIDManager?
-    /// autokbisw's `lastActiveKeyboard` debounce: only act when the typing device actually changes.
+    /// autokbisw's `lastActiveKeyboard` debounce: the device whose mapping has already been
+    /// applied, so a switch happens once per device change instead of once per key press.
+    /// Not the same question as `activeDeviceID` ("which keyboard is being typed on"), which
+    /// every path keeps current — this one is written only by whichever path does the switching,
+    /// and is cleared to re-arm it. Conflating the two costs the tap its device.
     private var lastActiveID: String?
     private var iconAnimation: Task<Void, Never>?
-    /// The last source this app selected, and the last one observed at all. An
-    /// external switch is a notification where the source actually CHANGED to
-    /// something we didn't select — comparing against lastAppSelected alone would
-    /// re-trigger on stray notifications long after the real switch (input methods
-    /// fire them on focus changes), e.g. immediately after re-enabling.
-    private var lastAppSelected: String?
+    /// The last source observed at all, so a notification that changed nothing is ignored —
+    /// input methods fire them on focus changes, long after the switch they belong to.
     private var lastKnownSourceID: String?
     /// The current input source, kept in sync by `select` and the change observer, so
     /// the tap's per-keystroke check never has to ask TIS.
@@ -403,14 +411,20 @@ final class AppState: ObservableObject {
         let device = IOHIDElementGetDevice(IOHIDValueGetElement(value))
         let id = Self.keyboard(for: device).id
         guard id != lastActiveID else { return }
-        lastActiveID = id
         activeDeviceID = id
+        // With the tap running it switches instead — from inside the keystroke, so the first
+        // character is already in the new layout. Here we'd be a moment too late.
+        //
+        // It owns `lastActiveID` with it: both callbacks fire for the same key press in no
+        // guaranteed order, and whichever writes that first makes the change look already
+        // handled to the other. Claiming it here would leave the tap nothing to act on.
+        //
+        // Exception: taps receive nothing while a password field holds secure input, so fall
+        // back to doing the whole job here (late, as before) rather than not at all.
+        guard !tap.isRunning || IsSecureEventInputEnabled() else { return }
+        lastActiveID = id
         resumeIfMatched(id)
-        // With the tap running it switches instead — from inside the keystroke, so the
-        // first character is already in the new layout. Here we'd be a moment too late.
-        // Exception: taps receive nothing while a password field holds secure input,
-        // so fall back to switching here (late, as before) rather than not at all.
-        if !tap.isRunning || IsSecureEventInputEnabled() { applySwitch(for: id) }
+        applySwitch(for: id)
     }
 
     /// Switches to the device's mapped source if it isn't already active.
@@ -432,7 +446,11 @@ final class AppState: ObservableObject {
     /// Called from inside the key press, so it must stay cheap: a dictionary lookup and
     /// a string compare, touching TIS only when a switch actually happens.
     private func decideTapKeyDown(senderID: UInt64?) -> KeyDecision {
-        guard let deviceID = senderID.flatMap({ senderIDs[$0] }) ?? lastActiveID else { return .pass }
+        // Falls back to activeDeviceID, not lastActiveID: the HID callback keeps the former
+        // current for every key press whether or not the tap is running, while the latter is
+        // the "mapping already applied" flag and is deliberately nil after a reset — falling
+        // back to it would leave the tap with no device exactly when it needs to act.
+        guard let deviceID = senderID.flatMap({ senderIDs[$0] }) ?? activeDeviceID else { return .pass }
         let deviceChanged = deviceID != lastActiveID
         if deviceChanged {
             lastActiveID = deviceID
@@ -494,7 +512,6 @@ final class AppState: ObservableObject {
 
     private func select(_ sourceID: String) {
         guard let source = Self.inputSource(id: sourceID) else { return }
-        lastAppSelected = sourceID
         cachedSourceID = sourceID
         TISSelectInputSource(source)
     }
@@ -719,33 +736,44 @@ final class AppState: ObservableObject {
                 self.tap.releaseHeldEvents()
                 if let current = self.cachedSourceID, current != self.lastKnownSourceID {
                     self.lastKnownSourceID = current
-                    if current != self.lastAppSelected {
+                    // Three cases. No active keyboard (nothing typed yet, or just re-enabled):
+                    // nothing vouches for the new layout, so treat it as a conflict. A keyboard
+                    // set to "Don't switch": its layout was never ours to defend, so it never
+                    // conflicts. Otherwise it comes down to whether the new source is the one
+                    // that keyboard is mapped to — landing on the layout we would have picked
+                    // anyway is nothing to step aside for, which is also why our own switches
+                    // need no "did we do it?" bookkeeping to be ignored here.
+                    //
+                    // activeDeviceID, not lastActiveID: the latter is the "mapping already
+                    // applied" debounce and gets cleared to re-arm it, which says nothing about
+                    // which keyboard is in use.
+                    let device = self.activeDeviceID
+                    let target = device.flatMap { self.settings[$0]?.source }
+                    if device == nil || (target != nil && target != current) {
                         switch self.externalChangeAction {
                         case .ignore:
                             break
                         case .reset:
                             // Forgetting the active device re-applies its mapping
                             // ("mapping wins") through the normal device-change path — no
-                            // per-keystroke source checks needed.
+                            // per-keystroke source checks needed. activeDeviceID goes with it
+                            // so the rail actually shows the deselection; without that the
+                            // reset happens invisibly.
                             self.lastActiveID = nil
-                        case .disable:
-                            self.lastActiveID = nil
+                            self.activeDeviceID = nil
+                        case .disable, .pause:
+                            // Nothing is forgotten: the keyboard stays selected so pause knows
+                            // what to match against, and so re-enabling can apply its mapping
+                            // straight away.
                             if self.isEnabled {
-                                self.autoDisabled = .disable
-                                self.isEnabled = false
-                            }
-                        case .pause:
-                            // lastActiveID kept: resuming needs to know which keyboard we're on.
-                            if self.isEnabled {
-                                self.autoDisabled = .pause
+                                self.autoDisabled = self.externalChangeAction
                                 self.isEnabled = false
                             }
                         }
                     }
-                    // Outside the lastAppSelected check on purpose: a paused app never calls
-                    // `select`, so lastAppSelected is still the mapped source — the very
-                    // switch back *to* it (the one that ends the pause) would be filtered out.
-                    self.resumeIfMatched(self.lastActiveID)
+                    // Outside the conflict check on purpose: a pause ends when the source comes
+                    // back to the keyboard's target, which is exactly the case that check skips.
+                    self.resumeIfMatched(self.activeDeviceID)
                 }
                 self.refreshInputSources()
                 self.refreshMenuBarCode()
