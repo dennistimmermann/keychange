@@ -116,6 +116,7 @@ final class AppState: ObservableObject {
         didSet {
             defaults.set(isEnabled, forKey: Key.isEnabled)
             refreshMenuBarCode()
+            updateTap()
             if isEnabled {
                 // Cleared after refreshMenuBarCode so the re-enable animation still sees the
                 // flag and fades the mark out.
@@ -312,8 +313,11 @@ final class AppState: ObservableObject {
     }
 
     /// The tap only runs while "Before key press" is selected and we may switch at all.
+    /// `isEnabled` is part of that on purpose: off has to mean the key presses stop passing
+    /// through us, not merely that we hand them back untouched. Pause still lifts itself
+    /// without the tap — `handle` takes over the device tracking whenever it isn't running.
     private func updateTap() {
-        guard switchTiming == .before, hasPermission else {
+        guard isEnabled, switchTiming == .before, hasPermission else {
             tap.stop()
             tapFailed = false
             return

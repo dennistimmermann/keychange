@@ -224,10 +224,15 @@ struct ContentView: View {
         let isHidden = state.isHidden(device.id)
 
         // Rows are not click targets — the active device comes from real key events.
+        // Grey while switched off: the rail still says which keyboard you are typing on —
+        // that keeps being tracked — but accent would claim we are acting on it.
+        let rail: Color = !isActive ? .clear
+            : state.isEnabled ? .accentColor : Color(nsColor: .secondaryLabelColor)
+
         return HStack(spacing: 0) {
             // Leading rail. Always present so names stay aligned; only coloured when active.
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(isActive ? Color.accentColor : Color.clear)
+                .fill(rail)
                 .frame(width: 3)
                 .padding(.trailing, 6)
 
