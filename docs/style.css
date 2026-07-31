@@ -75,7 +75,7 @@ nav {
   grid-template-columns: 1fr 560px;
   gap: 40px;
   align-items: center;
-  padding: 76px 40px 68px;
+  padding: 76px 40px 100px;
 }
 
 .hero-mark { display: block; margin-bottom: 22px; }
@@ -191,7 +191,7 @@ h1 {
 }
 /* The settings are their own group, so they get more air above than the cards
    keep between themselves. */
-.cards + .section-head { margin-top: 36px; }
+.cards + .section-head { margin-top: 54px; }
 
 /* ---------- feature cards ---------- */
 
@@ -199,7 +199,7 @@ h1 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
-  padding: 0 40px 48px;
+  padding: 0 40px 72px;
 }
 
 .cards article {
@@ -228,7 +228,7 @@ em { font-style: normal; color: var(--ink); }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  padding: 0 40px 48px;
+  padding: 0 40px 72px;
 }
 
 .settings article {
@@ -366,12 +366,12 @@ footer {
   nav { padding: 16px 24px; }
   .nav-links a:not(.button) { display: none; }
 
-  .hero { padding: 48px 24px 52px; }
+  .hero { padding: 48px 24px 78px; }
   .hero-mark { width: 72px; height: 72px; }
   h1 { font-size: 32px; }
 
-  .cards { grid-template-columns: 1fr; padding: 0 24px 32px; }
-  .settings { grid-template-columns: 1fr; padding: 0 24px 32px; }
+  .cards { grid-template-columns: 1fr; padding: 0 24px 48px; }
+  .settings { grid-template-columns: 1fr; padding: 0 24px 48px; }
   .section-head { padding: 0 24px; }
   footer { padding: 16px 24px; }
 }
