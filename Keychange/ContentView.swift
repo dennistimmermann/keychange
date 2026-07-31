@@ -52,11 +52,13 @@ struct ContentView: View {
             header
 
             if state.autoDisabled == .pause {
-                infoBox("Paused — the input source was changed outside Keychange. It resumes on its own once the input source matches your keyboard again, or click to resume now.") {
+                infoBox("Paused — the input source was changed by something other than Keychange. It resumes on its own once the input source matches your keyboard again.",
+                        symbol: "pause.circle", actionLabel: "Resume now") {
                     state.isEnabled = true
                 }
             } else if state.autoDisabled == .disable {
-                infoBox("Disabled — the input source was changed outside Keychange. Click to re-enable.") {
+                infoBox("Disabled — the input source was changed by something other than Keychange.",
+                        symbol: "power", actionLabel: "Re-enable", tint: .blue) {
                     state.isEnabled = true
                 }
             }
@@ -141,19 +143,39 @@ struct ContentView: View {
             .font(.system(size: 12))
     }
 
-    /// Notice under the header. With an action the whole box is clickable. `warning` tints it
-    /// yellow, for the one notice that states a cost rather than a state.
-    private func infoBox(_ text: String, warning: Bool = false, action: (() -> Void)? = nil) -> some View {
-        Button { action?() } label: {
-            Text(text)
-                .font(.system(size: 11))
-                .foregroundStyle(warning ? .primary : .secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(warning ? AnyShapeStyle(Color.yellow.opacity(0.22)) : AnyShapeStyle(.quaternary.opacity(0.5)),
-                            in: RoundedRectangle(cornerRadius: 6))
-                .contentShape(RoundedRectangle(cornerRadius: 6))
+    /// Notice under the header: a compact status, as opposed to `prompt`, which blocks. It
+    /// borrows the prompt's vocabulary — a symbol, the action in accent colour — but not its
+    /// size, since pausing happens routinely and the device list stays the point. `actionLabel`
+    /// runs on as the last words of `text` instead of being its own button, because the whole
+    /// box is already the click target.
+    ///
+    /// `tint` is what makes a notice louder than the plain grey one, and is spent sparingly so
+    /// it keeps meaning something: yellow warns about a cost you are taking on, blue says
+    /// switching has stopped until you do something. A state that heals itself stays grey.
+    private func infoBox(_ text: String, symbol: String, actionLabel: String? = nil,
+                         tint: Color? = nil, action: (() -> Void)? = nil) -> some View {
+        var label = Text(text)
+        if let actionLabel {
+            label = label + Text(" ") + Text(actionLabel).foregroundStyle(Color.accentColor)
+        }
+
+        return Button { action?() } label: {
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 11))
+                    // Nudged onto the first line's cap height; the symbol's own box sits high.
+                    .padding(.top, 1)
+
+                label
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(tint == nil ? .secondary : .primary)
+            .padding(8)
+            .background(tint.map { AnyShapeStyle($0.opacity(0.22)) } ?? AnyShapeStyle(.quaternary.opacity(0.5)),
+                        in: RoundedRectangle(cornerRadius: 6))
+            .contentShape(RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
         .disabled(action == nil)
@@ -333,7 +355,7 @@ struct ContentView: View {
                                  """)
             if showInterceptNotice {
                 infoBox("In this mode Keychange reads and may alter every key press, except in password fields. Needs Accessibility access.",
-                        warning: true) {
+                        symbol: "exclamationmark.triangle", tint: .yellow) {
                     showInterceptNotice = false
                 }
                 // infoBox insets by 3; the settings rows sit at 9.
@@ -399,11 +421,16 @@ struct ContentView: View {
     }
 
     /// Writes through to `AppState`, and raises the notice as a side effect of the change —
-    /// which is what keeps it off the screen at launch.
+    /// which is what keeps it off the screen until you actually pick something.
+    ///
+    /// The equality guard keeps a redundant write from counting as a change: SwiftUI is free to
+    /// write the current selection back, and `switchTiming`'s didSet fires on any assignment,
+    /// equal or not — which would raise the notice and restart the tap for nothing.
     private var switchTimingBinding: Binding<SwitchTiming> {
         Binding(
             get: { state.switchTiming },
             set: {
+                guard $0 != state.switchTiming else { return }
                 showInterceptNotice = ($0 == .before)
                 state.switchTiming = $0
             }
