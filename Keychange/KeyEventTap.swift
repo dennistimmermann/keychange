@@ -157,7 +157,10 @@ final class KeyEventTap {
 
     /// Private API, resolved at runtime so no private headers are needed and a missing symbol
     /// degrades to nil (the caller then falls back to the HID stream's last active device).
-    /// Excluded from builds that must not touch private API — see KEYCHANGE_PRIVATE_HID.
+    ///
+    /// Off in every build: KEYCHANGE_PRIVATE_HID is set nowhere, because the fallback turned
+    /// out to be right on its own — even handing over between two keyboards mid-sentence. The
+    /// path stays for the day the stream is not enough, and only then is it worth the symbols.
     private typealias CopyIOHIDEvent = @convention(c) (CGEvent) -> Unmanaged<AnyObject>?
     private typealias GetSenderID = @convention(c) (AnyObject) -> UInt64
 

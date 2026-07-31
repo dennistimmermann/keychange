@@ -82,11 +82,6 @@ what "Switch layout → Before key press" fixes, using a `CGEventTap` that re-tr
 target layout (`UCKeyTranslate`), or briefly withholds the key press when switching to an input
 method that composes from key codes at delivery time.
 
-Device identification inside the event tap uses two private symbols (`CGEventCopyIOHIDEvent`,
-`IOHIDEventGetSenderID`), resolved at runtime and compiled in only when the
-`KEYCHANGE_PRIVATE_HID` flag is set. Build with `SWIFT_ACTIVE_COMPILATION_CONDITIONS=""` for a
-binary that contains no trace of them; the app then identifies devices via the HID stream instead.
-
 Tagging a commit `vX.Y.Z` and pushing the tag builds that version and attaches it to a GitHub
 release.
 
