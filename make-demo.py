@@ -311,7 +311,7 @@ def state(t):
 
 
 # ---------------------------------------------------------------- layout
-def layout(callout, chip_w):
+def layout(callout, chip_w, tail=0):
     """Where everything sits. All values in points."""
     # Narrow enough that the desk left of the popover stays a margin rather than a
     # hole, plus the room the lens needs when there is one.
@@ -319,7 +319,10 @@ def layout(callout, chip_w):
     field_top = PANEL_Y + PANEL_H + FIELD_TOP_GAP
     row = field_top + FIELD_H + CHIP_TOP_GAP
     n = len(DEVICES)
-    row_w = n * chip_w + (n - 1) * CHIP_GAP
+    # Ink, not slots: every chip is as wide as the widest label, so the last one ends
+    # in blank if its own label is shorter. Centring the slots would push the row left
+    # by half that tail.
+    row_w = n * chip_w + (n - 1) * CHIP_GAP - tail
     x0 = M + ((w - 2 * M) - row_w) / 2                      # centred under the field
 
     spot = None
@@ -719,8 +722,14 @@ def chip_width(chip_font):
         chip_font.getlength(d["name"]) for d in DEVICES) / S
 
 
+def chip_tail(chip_font):
+    """The blank the last chip carries when its label is not the widest one."""
+    return (max(chip_font.getlength(d["name"]) for d in DEVICES)
+            - chip_font.getlength(DEVICES[-1]["name"])) / S
+
+
 def build(name, spec, shot, accent, fonts, mark):
-    L = layout(spec["callout"], chip_width(fonts["chip"]))
+    L = layout(spec["callout"], chip_width(fonts["chip"]), chip_tail(fonts["chip"]))
     card = spec.get("card", False)
     # The loop seams, so rotating where it starts is free — the card uses that to open
     # on the payoff instead of on an empty text field.
@@ -846,7 +855,8 @@ def demo():
     # under the scene is the one way this card can go out wrong.
     card_spec = next(s for s in VARIANTS.values() if s.get("card"))
     room = og_text_width(layout(card_spec["callout"],
-                                chip_width(fonts["chip"]))["size"][0])
+                                chip_width(fonts["chip"]),
+                                chip_tail(fonts["chip"]))["size"][0])
     for key, lines in (("og_brand", ["Keychange"]), ("og_title", OG_TITLE_LINES),
                        ("og_slogan", OG_SLOGAN_LINES), ("og_meta", [OG_META_LINE])):
         indent = OG_MARK + OG_MARK_GAP if key == "og_brand" else 0
@@ -863,7 +873,8 @@ def demo():
     for name, spec in VARIANTS.items():
         # The real measured width, not a stand-in: with three keyboards the row is
         # close enough to the canvas that a guess would check the wrong thing.
-        L = layout(spec["callout"], chip_width(fonts["chip"]))
+        L = layout(spec["callout"], chip_width(fonts["chip"]),
+                   chip_tail(fonts["chip"]))
         w, h = L["size"]
         assert L["field"][2] <= w - M and L["field"][3] <= h - M, name
         for cx, cy in L["chips"]:
