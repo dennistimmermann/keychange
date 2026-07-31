@@ -5,13 +5,15 @@
 <h1 align="center">Keychange</h1>
 
 <p align="center">
-  <b>The right keyboard layout for every keyboard.</b><br>
+  <b>One layout per keyboard.</b><br>
   A macOS menu bar app that switches the input source automatically when you switch keyboards.
 </p>
 
 <p align="center">
   <a href="https://keychange.dev">Website</a> ·
-  <a href="https://github.com/dennistimmermann/keychange/releases/latest">Download</a>
+  <a href="https://github.com/dennistimmermann/keychange/releases/latest">Download</a> ·
+  <a href="https://github.com/dennistimmermann/keychange/releases">Changelog</a> ·
+  <a href="https://github.com/dennistimmermann/keychange/issues">Issues</a>
 </p>
 
 <p align="center">
@@ -22,12 +24,12 @@
 macOS can switch input sources per app or with a shortcut — but never per keyboard. If your
 keyboards have different layouts, you end up switching by hand every time you move between them.
 Keychange does it for you: assign a layout to each keyboard once, and it switches the moment you
-start typing on that device. Inspired by [autokbisw](https://github.com/ohueter/autokbisw).
+start typing on that device.
 
 ## Features
 
 - **Automatic switching** — the input source follows whichever keyboard you type on
-- **Per-keyboard mappings** — pick a layout for each keyboard, or tell Keychange to leave one alone
+- **Per-keyboard mappings** — pick a layout for each keyboard, or leave one alone
 - **Menu bar badge** — always see the active input source at a glance
 - **Remembers your keyboards** — mappings survive unplugging and reconnecting
 - **Private by design** — keystrokes are only checked for which device they came from; nothing is recorded or sent anywhere
@@ -44,24 +46,30 @@ brew tap dennistimmermann/tap
 brew install --cask keychange
 ```
 
-Keychange will ask for **Input Monitoring** permission — that's how macOS lets it see which keyboard
-a keystroke came from, and it's the only way to do this.
+Keychange asks for **Input Monitoring** permission so it can detect which keyboard you're typing on.
 
 ## Using it
 
-Click the menu bar icon to see your connected keyboards. Each one gets a dropdown with your input
-sources, plus **Don't switch** for keyboards Keychange should ignore. The switch in the header
-disables Keychange.
+Click the menu bar icon to see your connected keyboards. Each one gets a dropdown, and the switch in
+the header turns Keychange off.
 
 Tip: option-click the menu bar icon to see each keyboard's vendor and product ID — handy when two
 keyboards have similar names.
+
+### The dropdown next to a keyboard
+
+| Choice | What it does |
+|---|---|
+| **Input sources** | Every layout you have enabled in System Settings. Pick the one that fits your keyboard. |
+| **Don't switch** | Keychange leaves the input source as is while you type on this keyboard. |
+| **Hidden** | The keyboard drops out of the list, and stops switching with it. For the mice and dongles that report themselves as keyboards. Option-click the menu bar icon, or open the settings, to bring it back. |
 
 ### Settings
 
 | Setting | What it does |
 |---|---|
-| **Switch layout** | When the switch lands. **After key press**: the character you typed to get there still uses the old layout. **Before key press**: Keychange intercepts the press and fixes that character — every key press in every app except password fields passes through it. Needs the Accessibility permission. |
-| **On external layout change** | What happens when you change the input source yourself. **Disable**: Keychange turns off until you turn it back on. **Pause**: turns off, then resumes by itself once the input source matches your keyboard again. **Ignore**: your choice stays until you switch keyboards. **Reset**: your choice stays until the next key press. |
+| **Switch layout** | Which side of the key event the switch lands on. **After key press**: detection happens just after a key has been sent, so the very first character still prints in the old layout. **Before key press**: Keychange intercepts the key press and changes the layout on the fly — every key press in every app except password fields passes through it. Needs the Accessibility permission. |
+| **On external layout change** | What Keychange does when something else changes the input source. **Disable**: off until you turn it back on. **Pause**: off, then back on by itself once the input source matches your keyboard again. **Ignore**: your choice stands until you switch keyboards. **Reset**: your choice stands until your next key press. |
 | **Check for updates automatically** | Looks for new releases on GitHub and offers to install them. This check is the only network request the app makes. |
 | **Launch at login** | Starts Keychange when you log in. |
 
@@ -86,6 +94,8 @@ Tagging a commit `vX.Y.Z` and pushing the tag builds that version and attaches i
 release.
 
 ## Support
+
+Bugs and requests go to [Issues](https://github.com/dennistimmermann/keychange/issues).
 
 Keychange is free and stays free. If it saved you some friction, you can leave a tip on
 [Ko-fi](https://ko-fi.com/tmrmn) or sponsor me on
