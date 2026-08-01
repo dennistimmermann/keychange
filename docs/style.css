@@ -112,8 +112,9 @@ h1 {
 
 .or { color: var(--footer); }
 
-/* The prompt does the work a box used to: it says terminal, at no width. */
-.cmd { color: var(--ink); }
+/* The prompt and the medium weight are the whole treatment: enough for a shell line
+   to read as one, with nothing drawn behind it. */
+.cmd { color: var(--ink); font-weight: 500; }
 .cmd::before { content: "$ "; opacity: 0.4; }
 
 .brew {
