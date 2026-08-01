@@ -177,7 +177,7 @@ jobs:
           cat appcast.xml
           gh release upload "$GITHUB_REF_NAME" appcast.xml
 
-      # The cask lives in dennistimmermann/homebrew-tap, so `brew install --cask keychange`
+      # The cask lives in dennistimmermann/homebrew-tap, so `brew install dennistimmermann/tap/keychange`
       # keeps handing out the previous version until it is bumped. Last, because a stale
       # cask is only worth failing the run over once the release itself is complete.
       # HOMEBREW_TAP_TOKEN is a fine-grained PAT scoped to that one repo, Contents: write.

@@ -46,6 +46,25 @@
         <p class="cta-note"><span id="version"></span>Free · MIT<br>macOS 14+ · Universal</p>
       </div>
 
+      <!-- One line: the word that lets a disk-image visitor stop reading, then the command
+           behind a prompt so it reads as something to paste into a terminal. -->
+      <div class="install">
+        <span class="or">or</span>
+        <code class="cmd">brew install dennistimmermann/tap/keychange</code>
+        <button class="brew" type="button" aria-label="Copy the install command"
+                data-cmd="brew install dennistimmermann/tap/keychange">
+          <svg class="glyph" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/>
+            <path d="M10.5 2.5h-8v8"/>
+          </svg>
+          <svg class="check" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 8.5 6.2 11.5 13 4.5"/>
+          </svg>
+        </button>
+      </div>
+
       <a class="kofi" href="https://ko-fi.com/tmrmn">
         <!-- A plain cup rather than Ko-fi's own mark: it inherits the page's ink,
              and the label carries the name. -->
@@ -180,6 +199,13 @@ fetch('https://api.github.com/repos/dennistimmermann/keychange/releases/latest')
   .then(r => r.json())
   .then(r => { if (r.tag_name) document.getElementById('version').textContent = r.tag_name + ' · '; })
   .catch(() => {});
+
+const brew = document.querySelector('.brew');
+brew.addEventListener('click', () => {
+  navigator.clipboard.writeText(brew.dataset.cmd);
+  brew.classList.add('copied');
+  setTimeout(() => brew.classList.remove('copied'), 1600);
+});
 </script>
 
 </body>

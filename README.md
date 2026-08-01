@@ -42,8 +42,7 @@ drag `Keychange.app` into `/Applications`, and launch it.
 Or with Homebrew:
 
 ```sh
-brew tap dennistimmermann/tap
-brew install --cask keychange
+brew install dennistimmermann/tap/keychange
 ```
 
 Keychange asks for **Input Monitoring** permission so it can detect which keyboard you're typing on.
