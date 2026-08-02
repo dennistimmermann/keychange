@@ -181,6 +181,17 @@ final class AppState: ObservableObject {
             // try? on purpose: a failed (un)register is not worth a UI error path.
             if launchAtLogin { try? SMAppService.mainApp.register() }
             else { try? SMAppService.mainApp.unregister() }
+            // Setting this by hand answers the offer's question, so the box goes away rather than
+            // sitting there asking about a switch you just used. Safe in `init`, which assigns the
+            // stored property directly and so never runs this.
+            //
+            // Only if it took, though. `try?` above swallows a failed `register()` — a still
+            // translocated first run, or an MDM policy — and the offer is asked exactly once, so
+            // latching it on a registration that silently did nothing would hide the very thing it
+            // exists to prevent. The test is the same `== .enabled` that opened the offer, so the
+            // two cannot disagree: any status that would not have suppressed the offer does not
+            // close it either, and a `.requiresApproval` result rightly asks again next launch.
+            if SMAppService.mainApp.status == .enabled { closeLaunchAtLoginOffer() }
         }
     }
     /// Sparkle. No EdDSA key (see UpdaterConfig), so the release build must stay
@@ -193,6 +204,14 @@ final class AppState: ObservableObject {
         didSet { updater.updater.automaticallyChecksForUpdates = automaticallyChecksForUpdates }
     }
 
+    /// Whether to offer starting at login. Keychange lives in the menu bar, so a user who never
+    /// turns this on gets their per-keyboard layouts silently back to nothing after a restart,
+    /// with little on screen to explain why — a worse surprise than being asked once.
+    ///
+    /// Asked once and then never again, whichever way it is answered. Never asked at all if the
+    /// login item is already registered, so reinstalls and upgrades stay quiet.
+    @Published private(set) var offersLaunchAtLogin = false
+
     private enum Key {
         static let settings = "deviceSettings"
         static let isEnabled = "isEnabled"
@@ -200,6 +219,7 @@ final class AppState: ObservableObject {
         static let autoDisabled = "autoDisabled"
         static let switchTiming = "switchTiming"
         static let showsMenuBarItem = "showsMenuBarItem"
+        static let didOfferLaunchAtLogin = "didOfferLaunchAtLogin"
     }
 
     private let defaults = UserDefaults.standard
@@ -249,7 +269,11 @@ final class AppState: ObservableObject {
         externalChangeAction = ExternalChangeAction(rawValue: defaults.string(forKey: Key.externalChangeAction) ?? "") ?? .ignore
         autoDisabled = ExternalChangeAction(rawValue: defaults.string(forKey: Key.autoDisabled) ?? "")
         switchTiming = SwitchTiming(rawValue: defaults.string(forKey: Key.switchTiming) ?? "") ?? .after
-        launchAtLogin = SMAppService.mainApp.status == .enabled
+        // Via a local, not by reading `launchAtLogin` back: touching a property with observers
+        // needs `self` fully initialized, and not every stored property is set yet.
+        let alreadyRegistered = SMAppService.mainApp.status == .enabled
+        launchAtLogin = alreadyRegistered
+        offersLaunchAtLogin = !defaults.bool(forKey: Key.didOfferLaunchAtLogin) && !alreadyRegistered
         showsMenuBarItem = defaults.object(forKey: Key.showsMenuBarItem) as? Bool ?? true
 
         refreshInputSources()
@@ -275,7 +299,11 @@ final class AppState: ObservableObject {
     // login — exactly when a headless app should show nothing — and `openWindow` is
     // unreachable from the delegate that handles a relaunch.
 
+    /// **Never opens while the menu bar item is on.** The item is the app's presence and its
+    /// panel is the settings; a window alongside it is a second copy of the same thing. Every
+    /// caller goes through here, so the rule holds however the request arrives.
     func showSettings() {
+        guard !showsMenuBarItem else { return }
         show(&settingsWindow, title: "Keychange") { ContentView(inWindow: true) }
     }
 
@@ -352,6 +380,16 @@ final class AppState: ObservableObject {
 
     func isHidden(_ deviceID: String) -> Bool {
         settings[deviceID]?.hidden ?? false
+    }
+
+    /// The offer closes in `launchAtLogin`'s `didSet`, which fires on any set — including this one.
+    func acceptLaunchAtLogin() { launchAtLogin = true }
+
+    func declineLaunchAtLogin() { closeLaunchAtLoginOffer() }
+
+    private func closeLaunchAtLoginOffer() {
+        defaults.set(true, forKey: Key.didOfferLaunchAtLogin)
+        offersLaunchAtLogin = false
     }
 
     func quit() {

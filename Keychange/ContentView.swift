@@ -61,14 +61,19 @@ struct ContentView: View {
 
             if state.autoDisabled == .pause {
                 infoBox("Paused — the input source was changed by something other than Keychange. It resumes on its own once the input source matches your keyboard again.",
-                        symbol: "pause.circle", actionLabel: "Resume now", tint: .blue) {
-                    state.isEnabled = true
-                }
+                        symbol: "pause.circle", tint: .blue,
+                        actions: [("Resume now", { state.isEnabled = true })])
             } else if state.autoDisabled == .disable {
                 infoBox("Disabled — the input source was changed by something other than Keychange.",
-                        symbol: "power", actionLabel: "Re-enable", tint: .blue) {
-                    state.isEnabled = true
-                }
+                        symbol: "power", tint: .blue,
+                        actions: [("Re-enable", { state.isEnabled = true })])
+            }
+
+            if state.offersLaunchAtLogin {
+                infoBox("Keychange is running. Allow it to automatically launch after a restart?",
+                        symbol: "power", tint: .blue,
+                        actions: [("Launch at login", state.acceptLaunchAtLogin),
+                                  ("Not now", state.declineLaunchAtLogin)])
             }
 
             if showsEmptyState {
@@ -152,41 +157,49 @@ struct ContentView: View {
     }
 
     /// Notice under the header: a compact status, as opposed to `prompt`, which blocks. It
-    /// borrows the prompt's vocabulary — a symbol, the action in accent colour — but not its
-    /// size, since pausing happens routinely and the device list stays the point. `actionLabel`
-    /// runs on as the last words of `text` instead of being its own button, because the whole
-    /// box is already the click target.
+    /// borrows the prompt's vocabulary — a symbol, the choices in accent colour — but not its
+    /// size, since pausing happens routinely and the device list stays the point.
     ///
-    /// `tint` is what makes a notice louder than the plain grey one, and is spent sparingly so
-    /// it keeps meaning something: yellow warns about a cost you are taking on, blue says
-    /// switching has stopped until you do something. A state that heals itself stays grey.
-    private func infoBox(_ text: String, symbol: String, actionLabel: String? = nil,
-                         tint: Color? = nil, action: (() -> Void)? = nil) -> some View {
-        var label = Text(text)
-        if let actionLabel {
-            label = label + Text(" ") + Text(actionLabel).foregroundStyle(Color.accentColor)
-        }
+    /// `tint` is what makes a notice louder than the plain grey one, and is spent sparingly so it
+    /// keeps meaning something: yellow warns about a cost you are taking on, blue says switching
+    /// has stopped until you do something. A state that heals itself stays grey.
+    ///
+    /// The choices sit on their own line rather than running on as the last words of the sentence,
+    /// which is what this used to do with the whole box as the click target. That shape cannot hold
+    /// two of them, and one plainer box beats two that look almost alike.
+    private func infoBox(_ text: String, symbol: String, tint: Color? = nil,
+                         actions: [(String, () -> Void)] = []) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: symbol)
+                .font(.system(size: 11))
+                // Nudged onto the first line's cap height; the symbol's own box sits high.
+                .padding(.top, 1)
 
-        return Button { action?() } label: {
-            HStack(alignment: .top, spacing: 6) {
-                Image(systemName: symbol)
-                    .font(.system(size: 11))
-                    // Nudged onto the first line's cap height; the symbol's own box sits high.
-                    .padding(.top, 1)
-
-                label
+            VStack(alignment: .leading, spacing: 2) {
+                Text(text)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                if !actions.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(Array(actions.enumerated()), id: \.offset) { index, action in
+                            if index > 0 { Text("·").foregroundStyle(.tertiary) }
+                            // Coloured explicitly: a tinted box sets the text to .primary so it
+                            // reads on the tint, and that would swallow the link style's colour.
+                            Button(action.0, action: action.1)
+                                .buttonStyle(.link)
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                }
             }
-            .font(.system(size: 11))
-            .foregroundStyle(tint == nil ? .secondary : .primary)
-            .padding(8)
-            .background(tint.map { AnyShapeStyle($0.opacity(0.22)) } ?? AnyShapeStyle(.quaternary.opacity(0.5)),
-                        in: RoundedRectangle(cornerRadius: 6))
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(.plain)
-        .disabled(action == nil)
+        .font(.system(size: 11))
+        .foregroundStyle(tint == nil ? .secondary : .primary)
+        .padding(8)
+        .background(tint.map { AnyShapeStyle($0.opacity(0.22)) } ?? AnyShapeStyle(.quaternary.opacity(0.5)),
+                    in: RoundedRectangle(cornerRadius: 6))
         .padding(.horizontal, 3)
         .padding(.bottom, 6)
     }
@@ -368,9 +381,8 @@ struct ContentView: View {
                                  """)
             if showInterceptNotice {
                 infoBox("In this mode Keychange reads and may alter every key press, except in password fields. Needs Accessibility access.",
-                        symbol: "exclamationmark.triangle", tint: .yellow) {
-                    showInterceptNotice = false
-                }
+                        symbol: "exclamationmark.triangle", tint: .yellow,
+                        actions: [("Got it", { showInterceptNotice = false })])
                 // infoBox insets by 3; the settings rows sit at 9.
                 .padding(.horizontal, 6)
             }
