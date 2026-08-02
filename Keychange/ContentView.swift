@@ -8,7 +8,12 @@ import SwiftUI
 @MainActor
 struct ContentView: View {
     @EnvironmentObject var state: AppState
-    @Environment(\.openWindow) private var openWindow
+
+    /// True in the standalone window — the surface you get with the menu bar item turned
+    /// off. The window has room and is not something you flick open for a glance, so it
+    /// shows the settings outright and drops the cog. Folding only earns its place in the
+    /// menu bar panel.
+    var inWindow = false
 
     /// Hold ⌥ while opening the panel to reveal the device IDs, like the system's own
     /// applets (Wi-Fi, Battery) do. Sampled once per open; the cog does not set it.
@@ -33,10 +38,13 @@ struct ContentView: View {
     /// The picker's tag for "Hidden". Not a source ID (those are reverse-DNS).
     private static let hiddenTag = "hidden"
 
+    /// Whether the settings section is out: always in the window, on the cog in the panel.
+    private var showsSettings: Bool { inWindow || settingsExpanded }
+
     /// Hidden devices come back whenever the panel is in a configuring mood — ⌥ or the
     /// open settings — which is the way back for a device hidden by mistake.
     private var visibleDevices: [Keyboard] {
-        optionHeld || settingsExpanded
+        optionHeld || showsSettings
             ? state.devices
             : state.devices.filter { !hiddenSnapshot.contains($0.id) }
     }
@@ -73,15 +81,15 @@ struct ContentView: View {
                 deviceList
                     // The prompts have their own generous padding and the settings
                     // rows bring theirs, so only the bare list needs this back.
-                    .padding(.bottom, settingsExpanded || needsMoreSources ? 0 : 4)
+                    .padding(.bottom, showsSettings || needsMoreSources ? 0 : 4)
             }
 
-            if settingsExpanded || needsMoreSources {
+            if showsSettings || needsMoreSources {
                 Divider()
                     .padding(.vertical, 5)
                     .padding(.horizontal, 9)
 
-                if settingsExpanded {
+                if showsSettings {
                     settingsSection
                 } else {
                     addInputSourcesButton
@@ -195,9 +203,9 @@ struct ContentView: View {
 
             Spacer(minLength: 8)
 
-            cogButton
+            if !inWindow { cogButton }
 
-            Toggle("Enable Keychange", isOn: $state.isEnabled)
+            Toggle("Enable Keychange", isOn: state.binding(\.isEnabled))
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .labelsHidden()
@@ -374,8 +382,11 @@ struct ContentView: View {
                                  Ignore: keep your choice, and leave it until you switch to another keyboard.
                                  Reset: keep your choice until the next key press, which restores the keyboard's own input source.
                                  """)
-            settingsToggle("Launch at login", isOn: $state.launchAtLogin)
-            settingsToggle("Check for updates automatically", isOn: $state.automaticallyChecksForUpdates)
+            settingsToggle("Show menu bar item", isOn: state.binding(\.showsMenuBarItem),
+                           hint: "Turn this off and Keychange runs with nothing on screen at all. Launching it again always brings this window back, so it stays reachable either way.")
+            settingsToggle("Launch at login", isOn: state.binding(\.launchAtLogin))
+            settingsToggle("Check for updates automatically",
+                           isOn: state.binding(\.automaticallyChecksForUpdates))
 
             Divider()
                 .padding(.vertical, 5)
@@ -383,11 +394,7 @@ struct ContentView: View {
 
             addInputSourcesButton
             // "Check for Updates…" lives in the About panel, next to the version it acts on.
-            settingsButton("About") {
-                // LSUIElement: without activating, the panel opens behind everything.
-                NSApp.activate()
-                openWindow(id: AboutWindow.id)
-            }
+            settingsButton("About", action: state.showAbout)
             settingsButton("Quit", action: state.quit)
         }
     }

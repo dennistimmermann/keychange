@@ -88,6 +88,10 @@ private final class UpdaterConfig: NSObject, SPUUpdaterDelegate {
 @MainActor
 final class AppState: ObservableObject {
 
+    /// One instance, reachable from the app delegate — which is what has to open the
+    /// settings window on a relaunch, and cannot see a `@StateObject`.
+    static let shared = AppState()
+
     // Live state
     @Published var devices: [Keyboard] = []
     @Published var activeDeviceID: String? = nil
@@ -148,6 +152,30 @@ final class AppState: ObservableObject {
     /// Set when "Before key press" is selected but the tap could not be created — i.e. we
     /// don't have Accessibility access.
     @Published private(set) var tapFailed = false
+    /// Whether the status item is installed at all. Off means Keychange runs with nothing
+    /// on screen; the settings window takes over as its only surface.
+    @Published var showsMenuBarItem: Bool {
+        didSet {
+            guard showsMenuBarItem != oldValue else { return }
+            defaults.set(showsMenuBarItem, forKey: Key.showsMenuBarItem)
+            // Whichever way this is flipped, it is flipped from inside one of the two
+            // settings surfaces — and the other one is about to become the right one.
+            // Neither swap happens on its own, so both are done here, and both are
+            // deferred, because the toggle that triggered them is in the surface going
+            // away.
+            DispatchQueue.main.async { [self] in
+                if showsMenuBarItem {
+                    // The panel is the settings now; the window would be a second copy.
+                    settingsWindow?.close()
+                } else {
+                    // Removing the status item does not take its open panel with it —
+                    // that is left floating with nothing to belong to.
+                    dismissMenuBarPanel()
+                    showSettings()
+                }
+            }
+        }
+    }
     @Published var launchAtLogin: Bool {
         didSet {
             // try? on purpose: a failed (un)register is not worth a UI error path.
@@ -171,6 +199,7 @@ final class AppState: ObservableObject {
         static let externalChangeAction = "externalChangeAction"
         static let autoDisabled = "autoDisabled"
         static let switchTiming = "switchTiming"
+        static let showsMenuBarItem = "showsMenuBarItem"
     }
 
     private let defaults = UserDefaults.standard
@@ -195,8 +224,10 @@ final class AppState: ObservableObject {
     private var iconShowsDisabled = false
     /// The Accessibility prompt only appears once; after that the notice goes to Settings.
     private var didPromptForAccessibility = false
+    private var settingsWindow: NSWindow?
+    private var aboutWindow: NSWindow?
 
-    init() {
+    private init() {
         // Sparkle's SUEnableAutomaticChecks defaults to off, and it would otherwise ask
         // for permission with a modal on the second launch. Opt in through the
         // registration domain instead: the popover's toggle writes the user domain,
@@ -219,6 +250,7 @@ final class AppState: ObservableObject {
         autoDisabled = ExternalChangeAction(rawValue: defaults.string(forKey: Key.autoDisabled) ?? "")
         switchTiming = SwitchTiming(rawValue: defaults.string(forKey: Key.switchTiming) ?? "") ?? .after
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        showsMenuBarItem = defaults.object(forKey: Key.showsMenuBarItem) as? Bool ?? true
 
         refreshInputSources()
         refreshMenuBarCode()
@@ -232,7 +264,76 @@ final class AppState: ObservableObject {
         updateTap()
     }
 
+    // MARK: - Windows
+    //
+    // One `ContentView`, two containers. With the menu bar item on, its panel is the whole
+    // UI (see `KeychangeApp`) — no separate window, no duplicate menu. This window is the
+    // other container: what you get with the item turned off, and the fallback for a
+    // relaunch, since a `MenuBarExtra` panel cannot be opened programmatically.
+    //
+    // Plain AppKit rather than a SwiftUI `Window` scene, because those are restored at
+    // login — exactly when a headless app should show nothing — and `openWindow` is
+    // unreachable from the delegate that handles a relaunch.
+
+    func showSettings() {
+        show(&settingsWindow, title: "Keychange") { ContentView(inWindow: true) }
+    }
+
+    func showAbout() {
+        show(&aboutWindow, title: "About Keychange") { AboutView() }
+    }
+
+    /// SwiftUI hands out no reference to the `MenuBarExtra` panel, so it has to be found.
+    /// No private class names needed: it is the visible window we did not make ourselves,
+    /// floating above the normal window level the way a menu bar panel does.
+    private func dismissMenuBarPanel() {
+        for window in NSApp.windows
+        where window !== settingsWindow && window !== aboutWindow
+            && window.isVisible && window.level != .normal {
+            window.orderOut(nil)
+        }
+    }
+
+    private func show<Content: View>(_ window: inout NSWindow?, title: String,
+                                     @ViewBuilder content: () -> Content) {
+        // LSUIElement: without activating, the window opens behind everything.
+        NSApp.activate()
+        if let window {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        // Built around a hosting *controller*, not a bare NSHostingView: that is what
+        // sizes the window to the SwiftUI content. Handed a contentRect instead, the
+        // window keeps whatever size it was given — and .zero means an invisible window.
+        let new = NSWindow(contentViewController: NSHostingController(
+            rootView: content().environmentObject(self)))
+        // Set after the initialiser, which hands out a resizable, miniaturizable window:
+        // dropping both makes those two buttons the inert dots a panel should have.
+        new.styleMask = [.titled, .closable, .fullSizeContentView]
+        new.title = title
+        new.titlebarAppearsTransparent = true
+        new.titleVisibility = .hidden
+        new.isMovableByWindowBackground = true
+        // Closing a window that owns itself would deallocate it under our reference.
+        new.isReleasedWhenClosed = false
+        new.center()
+        new.makeKeyAndOrderFront(nil)
+        window = new
+    }
+
     // MARK: - Public API
+
+    /// A binding that drops a write of the value already there.
+    ///
+    /// SwiftUI hands the current value back during its own update passes, and `@Published`
+    /// announces a change on every assignment, equal or not — so a plain binding lets
+    /// SwiftUI invalidate the very view that just wrote it. `MenuBarExtra(isInserted:)`
+    /// does exactly that on every main-menu rebuild, which spins the main thread solid.
+    /// A guard in the `didSet` is too late: `objectWillChange` has already fired by then.
+    func binding<T: Equatable>(_ keyPath: ReferenceWritableKeyPath<AppState, T>) -> Binding<T> {
+        Binding(get: { self[keyPath: keyPath] },
+                set: { if self[keyPath: keyPath] != $0 { self[keyPath: keyPath] = $0 } })
+    }
 
     /// `sourceID == nil` means Default (never switch for this device). Also unhides.
     /// Persists immediately and applies right away if this is the device being typed on.

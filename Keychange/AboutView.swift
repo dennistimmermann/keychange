@@ -66,7 +66,6 @@ struct AboutView: View {
         }
         .frame(width: 420, height: 531) // +52 for the tip box, +34 for the update row, +18 for the Sparkle line
         .background(Color(nsColor: .windowBackgroundColor))
-        .background(WindowChrome())
     }
 
     /// `Version 1.0 · Build 1 · MIT`, read from the bundle.
@@ -86,9 +85,9 @@ struct AboutView: View {
         .foregroundStyle(Color(nsColor: .secondaryLabelColor))
     }
 
-    /// Whole row is the hit target; the ↗ is a glyph, not a button.
+    /// Whole row is the hit target, so nothing in it needs to advertise itself as one.
     private func linkRow(_ label: String, detail: String, url: URL) -> some View {
-        actionRow(label, detail: detail.isEmpty ? "↗" : "\(detail) ↗") {
+        actionRow(label, detail: detail) {
             NSWorkspace.shared.open(url)
         }
         .accessibilityLabel("\(label), opens \(url.host ?? url.absoluteString)")
@@ -152,22 +151,5 @@ struct AboutView: View {
         .padding(.top, 10)
         .padding(.horizontal, 32)
         .padding(.bottom, 22)
-    }
-}
-
-/// About-panel window chrome: no title, transparent titlebar, and only the close
-/// button live — minimise and zoom render as inert dots.
-private struct WindowChrome: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { NSView() }
-
-    func updateNSView(_ view: NSView, context: Context) {
-        DispatchQueue.main.async {
-            guard let window = view.window else { return }
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            window.standardWindowButton(.miniaturizeButton)?.isEnabled = false
-            window.standardWindowButton(.zoomButton)?.isEnabled = false
-            window.isMovableByWindowBackground = true
-        }
     }
 }
