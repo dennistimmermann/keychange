@@ -323,6 +323,46 @@ em { font-style: normal; color: var(--ink); }
 
 /* ---------- footer ---------- */
 
+/* ---------- also ----------
+   A quiet cross-link to the other app, on the same panel-and-hairline surface as the feature and
+   settings cards so it reads as part of the desk rather than an ad pinned to it. The whole card is
+   the link, which is why the global underline-on-hover has to be turned off — it would draw a line
+   through every line of the card. The shadow lifts instead. */
+
+.settings + .section-head { margin-top: 54px; }
+
+.also { padding: 0 40px 72px; }
+
+.also-card {
+  display: block;
+  background: var(--panel);
+  border: 0.5px solid var(--hairline);
+  border-radius: 11px;
+  padding: 20px;
+  box-shadow: 0 1px 2px rgba(20, 18, 30, 0.05);
+}
+.also-card:hover {
+  text-decoration: none;
+  box-shadow: 0 2px 9px rgba(20, 18, 30, 0.09);
+}
+
+.also-card h3 {
+  font-family: var(--sans);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 7px;
+}
+/* Not `em`, which this page colours as ink — the dash wants to sit back, not stand out. */
+.also-card h3 .dash { color: var(--body); font-weight: 400; }
+
+.also-card p { font-size: 12px; line-height: 1.6; margin: 0; max-width: 66ch; }
+
+/* Says where the card goes: it leaves the site, and an underlined title would not say that. */
+.also-go { display: block; margin-top: 13px; font-size: 11px; color: var(--body); }
+
+/* ---------- footer ---------- */
+
 footer {
   margin-top: auto;          /* keep the footer at the bottom on short pages */
   display: flex;
