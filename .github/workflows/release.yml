@@ -133,7 +133,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         # RELEASE_NOTES.md, not --generate-notes: this body is what users read in
         # Sparkle's update panel, and a list of commit subjects does not serve them.
-        run: gh release create "$GITHUB_REF_NAME" Keychange.zip Keychange.dmg --notes-file RELEASE_NOTES.md
+        # Idempotent on purpose. The workflow is a single job, so `gh run rerun --failed`
+        # replays every step from the top — and `gh release create` fails outright on a tag
+        # that already has a release, which makes a late-step failure unrecoverable without
+        # deleting the release by hand.
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+            gh release upload "$GITHUB_REF_NAME" Keychange.zip Keychange.dmg --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" Keychange.zip Keychange.dmg --notes-file RELEASE_NOTES.md
+          fi
 
       # Sparkle's feed. `releases/latest/download/appcast.xml` always redirects to the
       # newest release's copy, so the feed is a release asset and never needs a commit
@@ -175,7 +185,7 @@ jobs:
           </rss>
           XML
           cat appcast.xml
-          gh release upload "$GITHUB_REF_NAME" appcast.xml
+          gh release upload "$GITHUB_REF_NAME" appcast.xml --clobber
 
       # The cask lives in dennistimmermann/homebrew-tap, so `brew install dennistimmermann/tap/keychange`
       # keeps handing out the previous version until it is bumped. Last, because a stale
