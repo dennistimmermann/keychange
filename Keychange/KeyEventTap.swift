@@ -20,8 +20,11 @@ enum KeyDecision {
 /// events, which is also why it needs the Accessibility permission.
 final class KeyEventTap {
 
-    /// Asked for every key press, with the sending device's registry entry ID when resolvable.
-    var decide: ((UInt64?) -> KeyDecision)?
+    /// Asked for every key press. Which device sent it is the HID stream's business, not the
+    /// tap's: `CGEvent` only names its sender through private API, and the stream's last active
+    /// device turned out to be right on its own, even handing over between two keyboards
+    /// mid-sentence.
+    var decide: (() -> KeyDecision)?
 
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
@@ -88,7 +91,7 @@ final class KeyEventTap {
             return nil
         }
 
-        switch decide?(Self.senderID(of: event)) ?? .pass {
+        switch decide?() ?? .pass {
         case .pass:
             return Unmanaged.passUnretained(event)
         case .rewrite(let source):
@@ -157,34 +160,4 @@ final class KeyEventTap {
         event.keyboardSetUnicodeString(stringLength: length, unicodeString: characters)
     }
 
-    // MARK: - Which device sent this event
-
-    #if KEYCHANGE_PRIVATE_HID
-
-    /// Private API, resolved at runtime so no private headers are needed and a missing symbol
-    /// degrades to nil (the caller then falls back to the HID stream's last active device).
-    ///
-    /// Off in every build: KEYCHANGE_PRIVATE_HID is set nowhere, because the fallback turned
-    /// out to be right on its own — even handing over between two keyboards mid-sentence. The
-    /// path stays for the day the stream is not enough, and only then is it worth the symbols.
-    private typealias CopyIOHIDEvent = @convention(c) (CGEvent) -> Unmanaged<AnyObject>?
-    private typealias GetSenderID = @convention(c) (AnyObject) -> UInt64
-
-    private static let copyIOHIDEvent: CopyIOHIDEvent? = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGEventCopyIOHIDEvent")
-        .map { unsafeBitCast($0, to: CopyIOHIDEvent.self) }
-    private static let getSenderID: GetSenderID? = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "IOHIDEventGetSenderID")
-        .map { unsafeBitCast($0, to: GetSenderID.self) }
-
-    private static func senderID(of event: CGEvent) -> UInt64? {
-        guard let copyIOHIDEvent, let getSenderID,
-              let hidEvent = copyIOHIDEvent(event)?.takeRetainedValue() else { return nil }
-        let id = getSenderID(hidEvent)
-        return id == 0 ? nil : id
-    }
-
-    #else
-
-    private static func senderID(of event: CGEvent) -> UInt64? { nil }
-
-    #endif
 }

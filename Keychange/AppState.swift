@@ -78,7 +78,10 @@ final class AppState: ObservableObject {
                 // stays selected through all of this: it is still the one being typed on, and
                 // forgetting it would only cost the conflict check and Pause the one fact they
                 // need. A no-op when the layout already matches, which is the common case.
-                if let activeDeviceID { applySwitch(for: activeDeviceID) }
+                if let activeDeviceID, let wanted = settings[activeDeviceID]?.source,
+                   wanted != cachedSourceID {
+                    select(wanted)
+                }
             }
         }
     }
@@ -202,8 +205,6 @@ final class AppState: ObservableObject {
     /// The current input source, kept in sync by `select` and the change observer, so
     /// the tap's per-keystroke check never has to ask TIS.
     private var cachedSourceID: String?
-    /// Registry entry ID -> device id, for identifying the sender of a tapped event.
-    private var senderIDs: [UInt64: String] = [:]
     private let tap = KeyEventTap()
     /// Which "on external layout change" action turned the app off — `.disable` or `.pause`,
     /// nil when the app is not auto-off. Drives the popover info box, and the pause mark for
@@ -256,8 +257,8 @@ final class AppState: ObservableObject {
         lastKnownSourceID = cachedSourceID
         observeInputSourceChanges()
         startMonitoring()
-        tap.decide = { [weak self] senderID in
-            MainActor.assumeIsolated { self?.decideTapKeyDown(senderID: senderID) ?? .pass }
+        tap.decide = { [weak self] in
+            MainActor.assumeIsolated { self?.decideTapKeyDown() ?? .pass }
         }
         updateTap()
     }
@@ -498,7 +499,6 @@ final class AppState: ObservableObject {
     func refreshDevices() {
         guard let manager, let set = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> else {
             devices = []
-            senderIDs = [:]
             return
         }
         // Composite devices expose several HID interfaces with the same name/VID/PID;
@@ -507,13 +507,6 @@ final class AppState: ObservableObject {
         devices = set.map(Self.keyboard(for:))
             .filter { seen.insert($0.id).inserted }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        // A tapped event identifies its device by registry entry ID.
-        senderIDs = set.reduce(into: [:]) { map, device in
-            var entryID: UInt64 = 0
-            guard IORegistryEntryGetRegistryEntryID(IOHIDDeviceGetService(device), &entryID) == KERN_SUCCESS
-            else { return }
-            map[entryID] = Self.keyboard(for: device).id
-        }
         // A device that's gone must not keep the accent rail lit. Clearing this also means
         // replugging it counts as a change again, so it re-applies its mapping.
         if let active = activeDeviceID, !devices.contains(where: { $0.id == active }) {
@@ -548,13 +541,6 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Switches to the device's mapped source if it isn't already active.
-    /// Shared by the HID path and the event tap.
-    private func applySwitch(for deviceID: String) {
-        guard isEnabled, let wanted = settings[deviceID]?.source, wanted != cachedSourceID else { return }
-        select(wanted)
-    }
-
     /// Drops the keyboard being typed on, so the next press counts as a device change again and
     /// re-applies its mapping under whatever the settings now say. `mappingApplied` re-arms by
     /// construction, since any next press differs from nil. The rail going out is what shows it.
@@ -573,8 +559,8 @@ final class AppState: ObservableObject {
 
     /// Called from inside the key press, so it must stay cheap: a dictionary lookup and a
     /// string compare, touching TIS only when a switch actually happens.
-    private func decideTapKeyDown(senderID: UInt64?) -> KeyDecision {
-        guard let id = senderID.flatMap({ senderIDs[$0] }) ?? activeDeviceID,
+    private func decideTapKeyDown() -> KeyDecision {
+        guard let id = activeDeviceID,
               let wanted = keyPressed(on: id, switching: true),
               let source = Self.inputSource(id: wanted) else { return .pass }
         select(wanted)

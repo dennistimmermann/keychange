@@ -98,8 +98,11 @@ jobs:
             --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id N3BEDTWSK4 \
             > notary.json || true
           cat notary.json
+          # `|| true` because this line exists to explain a failure, and must not become one:
+          # a submit that died before writing json leaves no id to look up, and without this
+          # the log step fails first and the status check below never says what went wrong.
           xcrun notarytool log "$(jq -r .id notary.json)" \
-            --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id N3BEDTWSK4
+            --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id N3BEDTWSK4 || true
           test "$(jq -r .status notary.json)" = Accepted
           xcrun stapler staple "$APP"
           ditto -c -k --keepParent "$APP" Keychange.zip

@@ -54,6 +54,56 @@
   /* The hero's own shot, one notch larger so it holds its weight on a card. */
   .shot { justify-self: end; width: 430px; }
   .shot img { display: block; width: 430px; margin: -3px 0 0 auto; }
+  /* Menu bar metrics measured off a real capture: 40pt tall, 14px system text,
+     items 20pt apart, 18pt from the right edge. The surface is .cards article's:
+     flat panel, hairline, 11px radius, whisper shadow. Lives here rather than in
+     style.css because this card is the only thing that draws a menu bar — the page
+     itself composites one into demo-no-loupe.gif instead. */
+  .menubar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 20px;
+    height: 40px;
+    padding: 0 18px;
+    background: var(--panel);
+    border: 0.5px solid var(--hairline);
+    border-radius: 11px;
+    box-shadow: 0 1px 2px rgba(20, 18, 30, 0.05);
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  /* The status item exactly as the app builds it (AppState.markImage): two 9.2×6.9
+     plates 1.84/1.38 apart, scaled 18/8.68, corner radius 2 — the back one at 40%,
+     the front punching a 0.4 rim out of it so they read as separate cards, and the
+     code knocked clean through the front. The template image renders black in a
+     light menu bar, and the knocked-out glyph is the bar showing through. */
+  .mb-badge { position: relative; width: 23px; height: 18px; flex: none; }
+  .mb-badge i,
+  .mb-badge b {
+    position: absolute;
+    width: 19.07px;
+    height: 14.31px;
+    border-radius: 4.15px;
+  }
+  .mb-badge i { left: 3.81px; top: 0.83px; background: rgba(29, 29, 31, 0.4); }
+  .mb-badge b {
+    left: 0;
+    top: 3.69px;
+    background: var(--ink);
+    box-shadow: 0 0 0 0.83px var(--panel);   /* the rim gap punched by the front plate */
+    color: var(--panel);
+    font-size: 9.95px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    line-height: 14.31px;
+    text-align: center;
+  }
+  .mb-dim { color: var(--ink); }
+
+  /* Scaled up from those metrics: this card renders at 1200x630, not menu bar size. */
   .menubar { gap: 22px; height: 44px; padding: 0 20px; font-size: 15px; }
   .mb-badge { width: 25px; height: 20px; }
   .mb-badge i, .mb-badge b { width: 21px; height: 15.8px; border-radius: 4.6px; }

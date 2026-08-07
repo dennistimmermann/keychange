@@ -155,54 +155,6 @@ h1 {
 
 .hero-shot { justify-self: end; width: 560px; }
 
-/* Menu bar metrics measured off a real capture: 40pt tall, 14px system text,
-   items 20pt apart, 18pt from the right edge. The surface is .cards article's:
-   flat panel, hairline, 11px radius, whisper shadow. Used by og.html, which
-   still composites the static panel.png. */
-.menubar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 20px;
-  height: 40px;
-  padding: 0 18px;
-  background: var(--panel);
-  border: 0.5px solid var(--hairline);
-  border-radius: 11px;
-  box-shadow: 0 1px 2px rgba(20, 18, 30, 0.05);
-  font-family: var(--sans);
-  font-size: 14px;
-  color: var(--ink);
-}
-
-/* The status item exactly as the app builds it (AppState.markImage): two 9.2×6.9
-   plates 1.84/1.38 apart, scaled 18/8.68, corner radius 2 — the back one at 40%,
-   the front punching a 0.4 rim out of it so they read as separate cards, and the
-   code knocked clean through the front. The template image renders black in a
-   light menu bar, and the knocked-out glyph is the bar showing through. */
-.mb-badge { position: relative; width: 23px; height: 18px; flex: none; }
-.mb-badge i,
-.mb-badge b {
-  position: absolute;
-  width: 19.07px;
-  height: 14.31px;
-  border-radius: 4.15px;
-}
-.mb-badge i { left: 3.81px; top: 0.83px; background: rgba(29, 29, 31, 0.4); }
-.mb-badge b {
-  left: 0;
-  top: 3.69px;
-  background: var(--ink);
-  box-shadow: 0 0 0 0.83px var(--panel);   /* the rim gap punched by the front plate */
-  color: var(--panel);
-  font-size: 9.95px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  line-height: 14.31px;
-  text-align: center;
-}
-.mb-dim { color: var(--ink); }
-
 .hero-shot img {
   display: block;
   width: 560px;
@@ -321,8 +273,6 @@ em { font-style: normal; color: var(--ink); }
 
 .modes { font-size: 12px; line-height: 1.6; margin: 9px 0 0; padding-left: 16px; }
 
-/* ---------- footer ---------- */
-
 /* ---------- also ----------
    A quiet cross-link to the other app, on the same panel-and-hairline surface as the feature and
    settings cards so it reads as part of the desk rather than an ad pinned to it. The whole card is
@@ -417,16 +367,6 @@ footer {
 .legal ul { margin: 0 0 11px; padding-left: 19px; }
 .legal address { font-style: normal; font-size: 13px; line-height: 1.7; }
 .legal a { text-decoration: underline; text-underline-offset: 2px; }
-
-/* Anything only Dennis can fill in. Deliberately loud: an Impressum with a placeholder
-   address in it is worse than no Impressum at all. */
-.fill {
-  background: #FFE9A8;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
-  border-radius: 3px;
-  padding: 0 4px;
-  color: var(--ink);
-}
 
 /* ---------- responsive ---------- */
 
