@@ -142,7 +142,7 @@ enum MenuBarMark {
     private static func drawBadge(_ action: ExternalChangeAction, in plate: NSRect,
                                   fraction: CGFloat, _ ctx: CGContext) {
         guard fraction > 0 else { return }
-        let centre = CGPoint(x: plate.maxX - 0.4, y: plate.minY + 2.3)
+        let centre = CGPoint(x: plate.maxX - 0.4, y: plate.maxY)
 
         /// One geometry, asked for twice: `spread` 0 is the ink, `spread` 0.7 the clearance punched
         /// under it, so the outline cannot drift out of step with the shape it surrounds.
