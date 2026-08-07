@@ -38,6 +38,11 @@ struct ContentView: View {
     /// The picker's tag for "Hidden". Not a source ID (those are reverse-DNS).
     private static let hiddenTag = "hidden"
 
+    /// The input-source column. Capped rather than intrinsic: a popup button is as wide as its
+    /// widest *menu item*, so one long source name ("U.S. with Umlauts") would widen the whole
+    /// column. Long names truncate instead.
+    private static let sourceColumnWidth: CGFloat = 130
+
     /// Whether the settings section is out: always in the window, on the cog in the panel.
     private var showsSettings: Bool { inWindow || settingsExpanded }
 
@@ -288,9 +293,9 @@ struct ContentView: View {
             .pickerStyle(.menu)
             .labelsHidden()
             .controlSize(.small)
-            // Not intrinsic: a popup button is as wide as its widest *menu item*, so one long
-            // source name ("U.S. with Umlauts") widens the whole column. Long names truncate.
-            .frame(width: 130)
+            // Trailing, so the column ends on the same edge as the settings rows' controls
+            // below it — a popup narrower than the cap must not float away from it.
+            .frame(width: Self.sourceColumnWidth, alignment: .trailing)
             .padding(.leading, 8)
         }
         .padding(.vertical, 6)
