@@ -72,8 +72,6 @@ final class AppState: ObservableObject {
             refreshMenuBarCode()
             updateTap()
             if isEnabled {
-                // Cleared after refreshMenuBarCode so the re-enable animation still sees the
-                // flag and fades the mark out.
                 autoDisabled = nil
                 // Correct the layout the moment switching comes back on, rather than leaving
                 // whatever we were switched off over until the next key press. The keyboard
@@ -90,6 +88,15 @@ final class AppState: ObservableObject {
             guard externalChangeAction != oldValue else { return }
             defaults.set(externalChangeAction.rawValue, forKey: Key.externalChangeAction)
             forgetActiveDevice()
+            // The rule that switched Keychange off is also the rule for getting back on, so
+            // changing it re-decides an auto-off that is still in force. Under Ignore or Reset it
+            // would never have switched off at all, and being off with nothing left to explain it
+            // is worse than coming back on.
+            switch (autoDisabled, externalChangeAction) {
+            case (nil, _): break
+            case (_, .disable), (_, .pause): autoDisabled = externalChangeAction
+            case (_, .ignore), (_, .reset): isEnabled = true // didSet clears autoDisabled
+            }
         }
     }
     /// When the switch lands relative to the triggering key press — see `SwitchTiming`.
@@ -186,7 +193,9 @@ final class AppState: ObservableObject {
 
     private let defaults = UserDefaults.standard
     private var manager: IOHIDManager?
-    private var iconAnimation: Task<Void, Never>?
+    /// The pose the mark last settled on — where the next animation moves from. See animateMark.
+    private var shownMark = MenuBarMark.State(code: "—", dim: 0, badge: nil)
+    private var markAnimating = false
     /// The last source observed at all, so a notification that changed nothing is ignored —
     /// input methods fire them on focus changes, long after the switch they belong to.
     private var lastKnownSourceID: String?
@@ -200,10 +209,13 @@ final class AppState: ObservableObject {
     /// nil when the app is not auto-off. Drives the popover info box, and the pause mark for
     /// `.pause` only. Cleared when the user re-enables. Persisted so a relaunch keeps the reason.
     @Published private(set) var autoDisabled: ExternalChangeAction? {
-        didSet { defaults.set(autoDisabled?.rawValue, forKey: Key.autoDisabled) }
+        didSet {
+            defaults.set(autoDisabled?.rawValue, forKey: Key.autoDisabled)
+            // This is the value the badge draws, so the mark follows it from here rather than
+            // from whichever caller happened to change it.
+            refreshMenuBarCode()
+        }
     }
-    /// Whether the status item currently shows the disabled mark (drives the toggle animation).
-    private var iconShowsDisabled = false
     /// The Accessibility prompt only appears once; after that the notice goes to Settings.
     private var didPromptForAccessibility = false
     private var settingsWindow: NSWindow?
@@ -620,59 +632,55 @@ final class AppState: ObservableObject {
     }
 
     private func refreshMenuBarCode() {
-        let hadIcon = menuBarIcon != nil
-
         // Read the live source first, switched off or not: off says Keychange is not acting on
         // the layout, never that it has stopped reporting it.
         guard let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
-            iconAnimation?.cancel()
             menuBarCode = "—"
             menuBarIcon = nil
-            iconShowsDisabled = false
             return
         }
         let languages = Self.property(current, kTISPropertyInputSourceLanguages) as? [String] ?? []
-        let oldCode = menuBarCode
         let newCode = languages.first?.uppercased() ?? "—"
+        if menuBarCode != newCode { menuBarCode = newCode }
 
-        // Nothing to redraw — same code, same on/off state. Input methods (e.g. Korean: method
-        // plus input mode) fire the change notification more than once per switch, and menuBarCode
-        // is already the target of whatever is showing or animating, so returning here lets an
-        // in-flight transition keep playing instead of snapping it to its end.
-        if hadIcon, newCode == oldCode, iconShowsDisabled == !isEnabled { return }
-
-        iconAnimation?.cancel()
-        menuBarCode = newCode
-        let mark = autoDisabled
-
-        if !isEnabled {
-            // Only the on-to-off transition is worth animating; a layout change while off is
-            // just the code swapping under a mark that is already dimmed.
-            if hadIcon, !iconShowsDisabled {
-                animateIcon { MenuBarMark.enableFrame(t: $0, code: newCode, autoDisabled: mark) }
-            } else {
-                menuBarIcon = MenuBarMark.disabled(code: newCode, autoDisabled: mark)
-            }
-        } else if hadIcon, iconShowsDisabled {
-            animateIcon { MenuBarMark.enableFrame(t: 1 - $0, code: newCode, autoDisabled: mark) }
-        } else if hadIcon, oldCode != newCode, oldCode != "—" {
-            animateIcon { MenuBarMark.swapFrame(t: $0, from: oldCode, to: newCode) }
-        } else {
-            menuBarIcon = MenuBarMark.badge(newCode)
+        if menuBarIcon == nil {
+            // Nothing on screen to move from — the first draw, or back from the text fallback.
+            shownMark = markTarget
+            menuBarIcon = MenuBarMark.frame(from: shownMark, to: shownMark, progress: 1)
         }
-        iconShowsDisabled = !isEnabled
+        animateMark()
     }
 
-    /// Flip-book a mark transition into the status item (~0.3s, ~50fps, smoothstep).
-    private func animateIcon(frame: @escaping (CGFloat) -> NSImage) {
-        iconAnimation = Task { [weak self] in
-            let frames = 16
-            for i in 1...frames {
-                if Task.isCancelled { return }
-                let t = CGFloat(i) / CGFloat(frames)
-                self?.menuBarIcon = frame(t * t * (3 - 2 * t))
-                try? await Task.sleep(nanoseconds: 300_000_000 / UInt64(frames))
+    /// What the mark should show for the current state.
+    private var markTarget: MenuBarMark.State {
+        MenuBarMark.State(code: menuBarCode, dim: isEnabled ? 0 : 1,
+                          badge: isEnabled ? nil : autoDisabled)
+    }
+
+    /// Animates `shownMark` to `markTarget`, ~50fps, 0.3s a leg — and keeps going until they
+    /// meet, so a target that moves mid-flight is reached by another leg rather than by bending
+    /// this one. That is what makes this safe to call however redundantly the state changes
+    /// cascade — enable flipping, autoDisabled clearing a beat later, an input method's change
+    /// notification arriving twice: a call while the mark is already moving (or already right)
+    /// is a no-op, and a running animation is never cancelled, so no transition snaps because
+    /// another began. The `menuBarIcon != nil` checks stop the loop from redrawing a mark that
+    /// gave way to the text fallback mid-flight.
+    private func animateMark() {
+        guard !markAnimating, shownMark != markTarget else { return }
+        markAnimating = true
+        Task { [self] in
+            while shownMark != markTarget, menuBarIcon != nil {
+                let from = shownMark, to = markTarget, started = Date()
+                var t: CGFloat = 0
+                repeat {
+                    let linear = min(Date().timeIntervalSince(started) / 0.3, 1)
+                    t = CGFloat(linear * linear * (3 - 2 * linear)) // smoothstep
+                    menuBarIcon = MenuBarMark.frame(from: from, to: to, progress: t)
+                    try? await Task.sleep(nanoseconds: 20_000_000)
+                } while t < 1 && menuBarIcon != nil
+                shownMark = to
             }
+            markAnimating = false
         }
     }
 

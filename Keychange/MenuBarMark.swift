@@ -10,46 +10,38 @@ import AppKit
 /// light/dark variants — AppKit inverts it and applies its own opacity.
 enum MenuBarMark {
 
-    /// The static mark: the current source's code on the front plate.
-    static func badge(_ code: String) -> NSImage {
-        enableFrame(t: 0, code: code)
-    }
-
-    /// The mark for an app that is switched off, `autoDisabled` deciding whether it carries a
-    /// pause or stop badge.
-    static func disabled(code: String, autoDisabled: ExternalChangeAction?) -> NSImage {
-        enableFrame(t: 1, code: code, autoDisabled: autoDisabled)
-    }
-
-    /// One frame of the enable/disable transition. t = 0: the enabled badge. t = 1: disabled —
-    /// same geometry and the same code, the whole mark dimmed to 40%. No motion, just opacity.
+    /// One complete pose of the mark: the code on the front plate, how far the whole mark is
+    /// dimmed (0 on, 1 switched off), and the badge saying why it stopped.
     ///
-    /// The code stays legible throughout: switched off is still a state you read the current
-    /// layout from, and the mark's job is to say what the layout is. What changes is only whether
-    /// Keychange is acting on it. `autoDisabled` fades a badge in to say why; nil is the user
-    /// flipping the master switch off, which stays unbadged — a glyph means something happened to
-    /// you, not that you did it.
-    static func enableFrame(t: CGFloat, code: String,
-                            autoDisabled: ExternalChangeAction? = nil) -> NSImage {
-        markImage { ctx in
-            // Both plates dim together, so the mark keeps its own internal contrast on the way
-            // down instead of collapsing into one flat shape.
-            drawPlate(backPlate, alpha: 0.4 - 0.24 * t, ctx)
-            drawPlate(frontPlate, alpha: 1 - 0.6 * t, code: code, glyphFraction: 1, ctx)
-            if let autoDisabled { drawBadge(autoDisabled, in: frontPlate, fraction: t, ctx) }
-        }
+    /// The code stays legible at every value of `dim`: switched off is still a state you read the
+    /// current layout from, and saying what the layout is remains the mark's job. A badge says
+    /// *why* it stopped; nil is the user flipping the master switch off, which stays unbadged
+    /// — a glyph means something happened to you, not that you did it.
+    struct State: Equatable {
+        var code: String
+        var dim: CGFloat
+        var badge: ExternalChangeAction?
     }
 
-    /// One frame of the plate swap. t = 0: old code front. t = 1: new code front, which is also
-    /// `badge`. The old plate's glyph fades out by the midpoint; the new one fades in after it.
-    static func swapFrame(t: CGFloat, from oldCode: String, to newCode: String) -> NSImage {
-        markImage { ctx in
-            let old = { drawPlate(lerp(frontPlate, backPlate, t), alpha: 1 - 0.6 * t,
-                                  code: oldCode, glyphFraction: max(0, 1 - 2 * t), ctx) }
-            let new = { drawPlate(lerp(backPlate, frontPlate, t), alpha: 0.4 + 0.6 * t,
-                                  code: newCode, glyphFraction: max(0, 2 * t - 1), ctx) }
+    /// The frame `t` (0…1) of the way from `old` to `new`. The code swap slides the plates past
+    /// each other, the old glyph fading out by the midpoint before the new one fades in; the dim
+    /// interpolates; the badge crossfades. An axis whose endpoints agree is simply held, so any
+    /// combination of changes — or none — is the same call, with nothing to branch on.
+    static func frame(from old: State, to new: State, progress t: CGFloat) -> NSImage {
+        let swap = old.code == new.code ? 1 : t
+        let fade = old.badge == new.badge ? 1 : t
+        // Both plates dim by the same factor, so the mark keeps its internal contrast on the way
+        // down instead of collapsing into one flat shape.
+        let ink = 1 - 0.6 * (old.dim + (new.dim - old.dim) * t)
+        return markImage { ctx in
+            let back = { drawPlate(lerp(frontPlate, backPlate, swap), alpha: (1 - 0.6 * swap) * ink,
+                                   code: old.code, glyphFraction: max(0, 1 - 2 * swap), ctx) }
+            let front = { drawPlate(lerp(backPlate, frontPlate, swap), alpha: (0.4 + 0.6 * swap) * ink,
+                                    code: new.code, glyphFraction: max(0, 2 * swap - 1), ctx) }
             // The plate headed to the front paints on top from the midpoint on.
-            if t < 0.5 { new(); old() } else { old(); new() }
+            if swap < 0.5 { front(); back() } else { back(); front() }
+            drawBadge(old.badge, in: frontPlate, fraction: 1 - fade, ctx)
+            drawBadge(new.badge, in: frontPlate, fraction: fade, ctx)
         }
     }
 
@@ -139,9 +131,9 @@ enum MenuBarMark {
     /// Media transport vocabulary, so the pair explains itself: `‖` waits for the layout to match
     /// again, `■` waits for you. Hand-drawn rather than set from a font — no font's pause is a
     /// plain pair of bars at this size, and a glyph with any interior detail turns to mush.
-    private static func drawBadge(_ action: ExternalChangeAction, in plate: NSRect,
+    private static func drawBadge(_ action: ExternalChangeAction?, in plate: NSRect,
                                   fraction: CGFloat, _ ctx: CGContext) {
-        guard fraction > 0 else { return }
+        guard let action, fraction > 0 else { return }
         let centre = CGPoint(x: plate.maxX - 0.4, y: plate.maxY)
 
         /// One geometry, asked for twice: `spread` 0 is the ink, `spread` 0.7 the clearance punched
