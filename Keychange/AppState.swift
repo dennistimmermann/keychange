@@ -174,6 +174,16 @@ final class AppState: ObservableObject {
         static let didOfferLaunchAtLogin = "didOfferLaunchAtLogin"
     }
 
+    /// Taken for the whole life of the process and never ended. Without it, an app showing nothing
+    /// at all — menu bar item off, window closed — is a candidate for App Nap, which throttles the
+    /// main run loop. That is the run loop the HID manager and the event tap are both scheduled on,
+    /// so key presses simply stop arriving and switching dies until something is put back on
+    /// screen. `AllowingIdleSystemSleep` because watching for keystrokes is no reason to keep a Mac
+    /// awake.
+    private let activity = ProcessInfo.processInfo.beginActivity(
+        options: .userInitiatedAllowingIdleSystemSleep,
+        reason: "Watching which keyboard you are typing on")
+
     private let defaults = UserDefaults.standard
     private var manager: IOHIDManager?
     private var iconAnimation: Task<Void, Never>?
