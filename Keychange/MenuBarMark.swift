@@ -97,9 +97,17 @@ enum MenuBarMark {
         if !code.isEmpty { knockOut(glyph(code), in: rect, fraction: glyphFraction, ctx) }
     }
 
+    /// Two characters is what the plate fits, so a longer language code is cut to its first two:
+    /// `HAW` reads HA, `CKB` reads CK. Chinese is the one case that has to be told apart by script
+    /// rather than language — `ZH-HANS` and `ZH-HANT` would both read ZH, and switching between
+    /// them would show no change at all.
     private static func glyph(_ text: String) -> NSAttributedString {
-        // 1-2 characters only; 3+ falls back to the first.
-        let code = text.count > 2 ? String(text.prefix(1)) : text
+        let code: String
+        switch text.uppercased() {
+        case "ZH-HANS": code = "ZS"
+        case "ZH-HANT": code = "ZT"
+        default: code = String(text.prefix(2))
+        }
         return NSAttributedString(string: code, attributes: [
             .font: NSFont.systemFont(ofSize: 4.8, weight: .bold),
             .kern: -0.1,
