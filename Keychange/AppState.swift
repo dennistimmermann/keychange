@@ -4,60 +4,6 @@ import Carbon
 import ServiceManagement
 import Sparkle
 
-// MARK: - Models
-
-struct Keyboard: Identifiable {
-    let id: String // "\(name)-\(vendorID)-\(productID)"
-    let name: String
-    let vendorID: Int
-    let productID: Int
-}
-
-struct InputSource: Identifiable {
-    let id: String // kTISPropertyInputSourceID
-    let name: String // localized name
-}
-
-/// What the user chose for one device. `source == nil` means "Don't switch".
-/// `hidden` keeps a device out of the list — mice expose keyboard interfaces too
-/// (programmable buttons, media keys) and are indistinguishable from real keyboards
-/// by their HID descriptors, so the only reliable filter is the user pointing at them.
-struct DeviceSetting {
-    var source: String? = nil
-    var hidden = false
-}
-
-/// A setting that is "pick one of a few named options" — all the settings row needs to know.
-protocol SettingsOption: Hashable, CaseIterable {
-    var title: String { get }
-}
-
-/// What to do when the input source is changed outside the app (system Input menu, shortcut).
-enum ExternalChangeAction: String, SettingsOption {
-    /// Turn off until the user re-enables by hand.
-    case disable
-    /// Turn off, but keep watching and resume once the source matches the active keyboard again.
-    case pause
-    /// Leave it be — the external source stays until another keyboard takes over.
-    case ignore
-    /// Forget the active device, so the next keystroke re-applies its mapping.
-    case reset
-
-    var title: String { rawValue.capitalized }
-}
-
-/// When the switch to the new keyboard's input source lands, relative to the key press
-/// that triggered it.
-enum SwitchTiming: String, SettingsOption {
-    /// Switch once the press has been delivered — its character still uses the old layout.
-    case after
-    /// Intercept the press, switch, and fix the character before the app sees it.
-    /// Needs Accessibility.
-    case before
-
-    var title: String { self == .after ? "After key press" : "Before key press" }
-}
-
 /// Sparkle normally reads `SUFeedURL` from Info.plist, but the project generates its
 /// plist from build settings and Xcode only passes through the keys it knows — so the
 /// feed lives here instead.
@@ -587,11 +533,9 @@ final class AppState: ObservableObject {
         select(wanted)
     }
 
-    /// Drops the keyboard being typed on, so the next key press counts as a device change again
-    /// and re-applies that keyboard's mapping — through whatever the settings now say, which is
-    /// why changing one of them does this. `mappingApplied` needs no clearing: any next press
-    /// differs from nil, so it re-arms by construction. The rail going out is what makes the
-    /// deselection visible; without it this would happen invisibly.
+    /// Drops the keyboard being typed on, so the next press counts as a device change again and
+    /// re-applies its mapping under whatever the settings now say. `mappingApplied` re-arms by
+    /// construction, since any next press differs from nil. The rail going out is what shows it.
     private func forgetActiveDevice() {
         activeDeviceID = nil
     }
@@ -676,9 +620,9 @@ final class AppState: ObservableObject {
             let mark = autoDisabled
             if hadIcon {
                 let code = menuBarCode
-                animateIcon { Self.enableFrame(t: $0, code: code, autoDisabled: mark) }
+                animateIcon { MenuBarMark.enableFrame(t: $0, code: code, autoDisabled: mark) }
             } else {
-                menuBarIcon = Self.disabledIcon(autoDisabled: mark)
+                menuBarIcon = MenuBarMark.disabled(autoDisabled: mark)
             }
             iconShowsDisabled = true
             return
@@ -706,11 +650,11 @@ final class AppState: ObservableObject {
 
         if iconShowsDisabled, hadIcon {
             let mark = autoDisabled
-            animateIcon { Self.enableFrame(t: 1 - $0, code: newCode, autoDisabled: mark) }
+            animateIcon { MenuBarMark.enableFrame(t: 1 - $0, code: newCode, autoDisabled: mark) }
         } else if hadIcon, oldCode != newCode, oldCode != "—" {
-            animateIcon { Self.swapFrame(t: $0, from: oldCode, to: newCode) }
+            animateIcon { MenuBarMark.swapFrame(t: $0, from: oldCode, to: newCode) }
         } else {
-            menuBarIcon = Self.badge(newCode)
+            menuBarIcon = MenuBarMark.badge(newCode)
         }
         iconShowsDisabled = false
     }
@@ -726,147 +670,6 @@ final class AppState: ObservableObject {
                 try? await Task.sleep(nanoseconds: 300_000_000 / UInt64(frames))
             }
         }
-    }
-
-    // MARK: - Menu bar mark
-    //
-    // The Keychange mark, evolved from design-handoff/logo: two equal 4:3 plates
-    // (the system Input menu badge ratio) at 80% overlap. The front plate carries
-    // the current source's code knocked out to a real hole so template rendering
-    // survives; the back plate is the source switched *from* — texture only.
-    // On a source change the plates animate a swap (flip-book of NSImages, since
-    // status item labels can't run SwiftUI animations).
-
-    nonisolated private static let frontPlate = NSRect(x: 1.5, y: 1.4, width: 9.2, height: 6.9)
-    nonisolated private static let backPlate = NSRect(x: 3.34, y: 2.78, width: 9.2, height: 6.9)
-
-    /// Construction spans x 1.5-12.54, y 1.4-10.08 (8.68pt tall), scaled to 18pt tall.
-    nonisolated private static func markImage(_ draw: @escaping (CGContext) -> Void) -> NSImage {
-        let k: CGFloat = 18 / 8.68
-        let image = NSImage(size: NSSize(width: (11.04 * k).rounded(), height: 18), flipped: false) { _ in
-            let ctx = NSGraphicsContext.current!.cgContext
-            ctx.translateBy(x: -1.5 * k, y: -1.4 * k)
-            ctx.scaleBy(x: k, y: k)
-            draw(ctx)
-            return true
-        }
-        image.isTemplate = true
-        return image
-    }
-
-    /// Draws one plate: punches a slightly expanded footprint out of everything
-    /// below (so a translucent plate reads as an opaque card with a 0.4pt rim gap
-    /// instead of blending — without it, same-brightness plates merge into one
-    /// blob), fills at `alpha`, then knocks `glyphFraction` of the code out.
-    nonisolated private static func drawPlate(_ rect: NSRect, alpha: CGFloat, code: String = "",
-                                              glyphFraction: CGFloat = 0, _ ctx: CGContext) {
-        ctx.saveGState()
-        ctx.setBlendMode(.destinationOut)
-        NSColor.black.setFill()
-        NSBezierPath(roundedRect: rect.insetBy(dx: -0.4, dy: -0.4), xRadius: 2.4, yRadius: 2.4).fill()
-        ctx.restoreGState()
-
-        NSColor.black.withAlphaComponent(alpha).setFill()
-        NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2).fill()
-
-        if !code.isEmpty { knockOut(glyph(code), in: rect, fraction: glyphFraction, ctx) }
-    }
-
-    nonisolated private static func lerp(_ a: NSRect, _ b: NSRect, _ t: CGFloat) -> NSRect {
-        NSRect(x: a.minX + (b.minX - a.minX) * t, y: a.minY + (b.minY - a.minY) * t,
-               width: a.width, height: a.height)
-    }
-
-    nonisolated private static func glyph(_ text: String) -> NSAttributedString {
-        // 1-2 characters only; 3+ falls back to the first.
-        let code = text.count > 2 ? String(text.prefix(1)) : text
-        return NSAttributedString(string: code, attributes: [
-            .font: NSFont.systemFont(ofSize: 4.8, weight: .bold),
-            .kern: -0.1,
-        ])
-    }
-
-    /// Punches `fraction` of the glyph out of everything drawn so far, centered on
-    /// the actual ink: font-metric math (cap height/descender) drifts at this size.
-    nonisolated private static func knockOut(_ text: NSAttributedString, in rect: NSRect,
-                                 fraction: CGFloat, _ ctx: CGContext) {
-        guard fraction > 0 else { return }
-        ctx.saveGState()
-        ctx.setBlendMode(.destinationOut)
-        ctx.setAlpha(fraction)
-        ctx.beginTransparencyLayer(auxiliaryInfo: nil)
-        let line = CTLineCreateWithAttributedString(text)
-        ctx.textPosition = .zero
-        let ink = CTLineGetImageBounds(line, ctx)
-        ctx.textPosition = CGPoint(x: rect.midX - ink.midX, y: rect.midY - ink.midY)
-        CTLineDraw(line, ctx)
-        ctx.endTransparencyLayer()
-        ctx.restoreGState()
-    }
-
-    /// One frame of the plate swap. t = 0: old code front. t = 1: new code front —
-    /// which is also the static mark, so `badge` is just the final frame.
-    /// Old plate glyph fades out by the midpoint; the new one fades in after it.
-    nonisolated private static func swapFrame(t: CGFloat, from oldCode: String, to newCode: String) -> NSImage {
-        markImage { ctx in
-            let old = { drawPlate(lerp(frontPlate, backPlate, t), alpha: 1 - 0.6 * t,
-                                  code: oldCode, glyphFraction: max(0, 1 - 2 * t), ctx) }
-            let new = { drawPlate(lerp(backPlate, frontPlate, t), alpha: 0.4 + 0.6 * t,
-                                  code: newCode, glyphFraction: max(0, 2 * t - 1), ctx) }
-            // The plate headed to the front paints on top from the midpoint on.
-            if t < 0.5 { new(); old() } else { old(); new() }
-        }
-    }
-
-    /// The mark for an app that turned itself off, knocked out of the plate. Media transport
-    /// vocabulary, so the pair explains itself: `‖` waits for the layout to match again, `■`
-    /// waits for you. Hand-drawn rather than set from a font — no font's pause is a plain pair
-    /// of bars at this size, and a glyph with any interior detail turns to mush.
-    nonisolated private static func knockOutMark(_ action: ExternalChangeAction, in rect: NSRect,
-                                                 fraction: CGFloat, _ ctx: CGContext) {
-        guard fraction > 0 else { return }
-        let height: CGFloat = 3.4, barWidth: CGFloat = 0.9, gap: CGFloat = 0.9
-        // The square reads heavier than the two bars at the same height, so it is drawn
-        // slightly smaller to keep the pair looking like one family.
-        let stopSide: CGFloat = 2.9
-        ctx.saveGState()
-        ctx.setBlendMode(.destinationOut)
-        ctx.setAlpha(fraction)
-        NSColor.black.setFill()
-        if action == .pause {
-            for offset in [-(gap + barWidth) / 2, (gap + barWidth) / 2] {
-                NSBezierPath(roundedRect: NSRect(x: rect.midX + offset - barWidth / 2, y: rect.midY - height / 2,
-                                                 width: barWidth, height: height),
-                             xRadius: barWidth / 2, yRadius: barWidth / 2).fill()
-            }
-        } else {
-            NSBezierPath(roundedRect: NSRect(x: rect.midX - stopSide / 2, y: rect.midY - stopSide / 2,
-                                             width: stopSide, height: stopSide),
-                         xRadius: 0.55, yRadius: 0.55).fill()
-        }
-        ctx.restoreGState()
-    }
-
-    /// One frame of the enable/disable transition. t = 0: enabled badge (which is
-    /// also the static mark). t = 1: disabled — same geometry, front plate dimmed
-    /// to 40% with the code faded out. No motion, just opacity. `autoDisabled` fades its
-    /// mark in as the code fades out; nil is the user flipping the master switch off, which
-    /// stays unmarked — a glyph means something happened to you, not that you did it.
-    nonisolated private static func enableFrame(t: CGFloat, code: String,
-                                                autoDisabled: ExternalChangeAction? = nil) -> NSImage {
-        markImage { ctx in
-            drawPlate(backPlate, alpha: 0.4, ctx)
-            drawPlate(frontPlate, alpha: 1 - 0.6 * t, code: code, glyphFraction: 1 - t, ctx)
-            if let autoDisabled { knockOutMark(autoDisabled, in: frontPlate, fraction: t, ctx) }
-        }
-    }
-
-    nonisolated private static func badge(_ text: String) -> NSImage {
-        enableFrame(t: 0, code: text)
-    }
-
-    nonisolated private static func disabledIcon(autoDisabled: ExternalChangeAction?) -> NSImage {
-        enableFrame(t: 1, code: "", autoDisabled: autoDisabled)
     }
 
     /// Also catches input source changes the user makes by hand (or via the system UI).

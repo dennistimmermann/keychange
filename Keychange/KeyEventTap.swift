@@ -27,6 +27,8 @@ final class KeyEventTap {
     private var source: CFRunLoopSource?
     /// Presses withheld while waiting for the input source to change, in typing order.
     private var held: [CGEvent] = []
+    /// Bumped every time `held` is drained, so a timer armed for one batch cannot fire on the next.
+    private var batchID = 0
     /// Marks our own re-posted events so we pass them straight through.
     private static let repostMarker: Int64 = 0x4B43_4841_4E47 // "KCHANG"
 
@@ -102,15 +104,19 @@ final class KeyEventTap {
         guard let copy = event.copy() else { return }
         held.append(copy)
         // Safety net: never swallow keystrokes if the switch notification never arrives.
-        let generation = held.count
+        // Keyed on the batch, not on how many are in it — the batch this timer was armed for
+        // can be released and a new one started well inside the 0.25s, and letting a stale
+        // timer fire on that one would deliver it before its own switch had landed.
+        let batch = batchID
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-            guard let self, self.held.count >= generation else { return }
+            guard let self, self.batchID == batch, !self.held.isEmpty else { return }
             self.releaseHeldEvents()
         }
     }
 
     /// Called once the input source actually changed: deliver what we withheld, in order.
     func releaseHeldEvents() {
+        batchID &+= 1
         let events = held
         held = []
         for event in events {
