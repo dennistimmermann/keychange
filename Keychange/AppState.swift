@@ -140,13 +140,19 @@ final class AppState: ObservableObject {
     }
     /// How to react when the input source is changed outside the app.
     @Published var externalChangeAction: ExternalChangeAction {
-        didSet { defaults.set(externalChangeAction.rawValue, forKey: Key.externalChangeAction) }
+        didSet {
+            guard externalChangeAction != oldValue else { return }
+            defaults.set(externalChangeAction.rawValue, forKey: Key.externalChangeAction)
+            forgetActiveDevice()
+        }
     }
     /// When the switch lands relative to the triggering key press — see `SwitchTiming`.
     @Published var switchTiming: SwitchTiming {
         didSet {
+            guard switchTiming != oldValue else { return }
             defaults.set(switchTiming.rawValue, forKey: Key.switchTiming)
             updateTap()
+            forgetActiveDevice()
         }
     }
     /// Set when "Before key press" is selected but the tap could not be created — i.e. we
@@ -581,6 +587,15 @@ final class AppState: ObservableObject {
         select(wanted)
     }
 
+    /// Drops the keyboard being typed on, so the next key press counts as a device change again
+    /// and re-applies that keyboard's mapping — through whatever the settings now say, which is
+    /// why changing one of them does this. `mappingApplied` needs no clearing: any next press
+    /// differs from nil, so it re-arms by construction. The rail going out is what makes the
+    /// deselection visible; without it this would happen invisibly.
+    private func forgetActiveDevice() {
+        activeDeviceID = nil
+    }
+
     /// A pause lifts itself: as soon as the current source is the one the keyboard being
     /// typed on maps to, switching resumes. Called from every path that can make the two
     /// meet — the source changing (observer) and the typing device changing (above).
@@ -887,11 +902,8 @@ final class AppState: ObservableObject {
                 case .ignore:
                     break
                 case .reset:
-                    // Forgetting the active device re-applies its mapping ("mapping wins")
-                    // through the normal device-change path: any next press differs from nil,
-                    // so it re-arms by construction. It also makes the rail actually show the
-                    // deselection; without that the reset happens invisibly.
-                    activeDeviceID = nil
+                    // "Mapping wins": the keyboard's own source comes back on the next press.
+                    forgetActiveDevice()
                 case .disable, .pause:
                     // Nothing is forgotten: the keyboard stays selected so pause knows
                     // what to match against, and so re-enabling can apply its mapping
