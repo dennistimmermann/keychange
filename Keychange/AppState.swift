@@ -622,22 +622,8 @@ final class AppState: ObservableObject {
     private func refreshMenuBarCode() {
         let hadIcon = menuBarIcon != nil
 
-        guard isEnabled else {
-            // Already showing (or animating toward) the disabled mark: leave it be —
-            // a duplicate refresh must not snap a running fade to its end.
-            if hadIcon, iconShowsDisabled { return }
-            iconAnimation?.cancel()
-            let mark = autoDisabled
-            if hadIcon {
-                let code = menuBarCode
-                animateIcon { MenuBarMark.enableFrame(t: $0, code: code, autoDisabled: mark) }
-            } else {
-                menuBarIcon = MenuBarMark.disabled(autoDisabled: mark)
-            }
-            iconShowsDisabled = true
-            return
-        }
-
+        // Read the live source first, switched off or not: off says Keychange is not acting on
+        // the layout, never that it has stopped reporting it.
         guard let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
             iconAnimation?.cancel()
             menuBarCode = "—"
@@ -649,24 +635,32 @@ final class AppState: ObservableObject {
         let oldCode = menuBarCode
         let newCode = languages.first?.uppercased() ?? "—"
 
-        // Input methods (e.g. Korean: method + input mode) fire the change
-        // notification more than once per switch. menuBarCode is already the
-        // target of whatever is showing or animating — a same-code refresh is a
-        // no-op, so an in-flight swap keeps playing instead of snapping to its end.
-        if hadIcon, !iconShowsDisabled, newCode == oldCode { return }
+        // Nothing to redraw — same code, same on/off state. Input methods (e.g. Korean: method
+        // plus input mode) fire the change notification more than once per switch, and menuBarCode
+        // is already the target of whatever is showing or animating, so returning here lets an
+        // in-flight transition keep playing instead of snapping it to its end.
+        if hadIcon, newCode == oldCode, iconShowsDisabled == !isEnabled { return }
 
         iconAnimation?.cancel()
         menuBarCode = newCode
+        let mark = autoDisabled
 
-        if iconShowsDisabled, hadIcon {
-            let mark = autoDisabled
+        if !isEnabled {
+            // Only the on-to-off transition is worth animating; a layout change while off is
+            // just the code swapping under a mark that is already dimmed.
+            if hadIcon, !iconShowsDisabled {
+                animateIcon { MenuBarMark.enableFrame(t: $0, code: newCode, autoDisabled: mark) }
+            } else {
+                menuBarIcon = MenuBarMark.disabled(code: newCode, autoDisabled: mark)
+            }
+        } else if hadIcon, iconShowsDisabled {
             animateIcon { MenuBarMark.enableFrame(t: 1 - $0, code: newCode, autoDisabled: mark) }
         } else if hadIcon, oldCode != newCode, oldCode != "—" {
             animateIcon { MenuBarMark.swapFrame(t: $0, from: oldCode, to: newCode) }
         } else {
             menuBarIcon = MenuBarMark.badge(newCode)
         }
-        iconShowsDisabled = false
+        iconShowsDisabled = !isEnabled
     }
 
     /// Flip-book a mark transition into the status item (~0.3s, ~50fps, smoothstep).

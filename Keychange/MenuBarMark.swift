@@ -16,22 +16,27 @@ enum MenuBarMark {
     }
 
     /// The mark for an app that is switched off, `autoDisabled` deciding whether it carries a
-    /// pause or stop glyph.
-    static func disabled(autoDisabled: ExternalChangeAction?) -> NSImage {
-        enableFrame(t: 1, code: "", autoDisabled: autoDisabled)
+    /// pause or stop badge.
+    static func disabled(code: String, autoDisabled: ExternalChangeAction?) -> NSImage {
+        enableFrame(t: 1, code: code, autoDisabled: autoDisabled)
     }
 
     /// One frame of the enable/disable transition. t = 0: the enabled badge. t = 1: disabled —
-    /// same geometry, front plate dimmed to 40% with the code faded out. No motion, just opacity.
-    /// `autoDisabled` fades its mark in as the code fades out; nil is the user flipping the master
-    /// switch off, which stays unmarked — a glyph means something happened to you, not that you
-    /// did it.
+    /// same geometry and the same code, the whole mark dimmed to 40%. No motion, just opacity.
+    ///
+    /// The code stays legible throughout: switched off is still a state you read the current
+    /// layout from, and the mark's job is to say what the layout is. What changes is only whether
+    /// Keychange is acting on it. `autoDisabled` fades a badge in to say why; nil is the user
+    /// flipping the master switch off, which stays unbadged — a glyph means something happened to
+    /// you, not that you did it.
     static func enableFrame(t: CGFloat, code: String,
                             autoDisabled: ExternalChangeAction? = nil) -> NSImage {
         markImage { ctx in
-            drawPlate(backPlate, alpha: 0.4, ctx)
-            drawPlate(frontPlate, alpha: 1 - 0.6 * t, code: code, glyphFraction: 1 - t, ctx)
-            if let autoDisabled { knockOutMark(autoDisabled, in: frontPlate, fraction: t, ctx) }
+            // Both plates dim together, so the mark keeps its own internal contrast on the way
+            // down instead of collapsing into one flat shape.
+            drawPlate(backPlate, alpha: 0.4 - 0.24 * t, ctx)
+            drawPlate(frontPlate, alpha: 1 - 0.6 * t, code: code, glyphFraction: 1, ctx)
+            if let autoDisabled { drawBadge(autoDisabled, in: frontPlate, fraction: t, ctx) }
         }
     }
 
@@ -119,31 +124,49 @@ enum MenuBarMark {
         ctx.restoreGState()
     }
 
+    /// The badge that says why the app stopped: full ink on plates that have gone to 40%, over the
+    /// mark's bottom-right corner and over whatever of the code is under it — the code is a
+    /// two-letter hint, the badge is a state, and a clipped letter still reads.
+    ///
     /// Media transport vocabulary, so the pair explains itself: `‖` waits for the layout to match
     /// again, `■` waits for you. Hand-drawn rather than set from a font — no font's pause is a
     /// plain pair of bars at this size, and a glyph with any interior detail turns to mush.
-    private static func knockOutMark(_ action: ExternalChangeAction, in rect: NSRect,
-                                     fraction: CGFloat, _ ctx: CGContext) {
+    private static func drawBadge(_ action: ExternalChangeAction, in plate: NSRect,
+                                  fraction: CGFloat, _ ctx: CGContext) {
         guard fraction > 0 else { return }
-        let height: CGFloat = 3.4, barWidth: CGFloat = 0.9, gap: CGFloat = 0.9
-        // The square reads heavier than the two bars at the same height, so it is drawn
-        // slightly smaller to keep the pair looking like one family.
-        let stopSide: CGFloat = 2.9
+        let centre = CGPoint(x: plate.maxX - 0.4, y: plate.minY + 2.3)
+
+        /// One geometry, asked for twice: `spread` 0 is the ink, `spread` 0.7 the clearance punched
+        /// under it, so the outline cannot drift out of step with the shape it surrounds.
+        func shape(spread: CGFloat) -> [NSBezierPath] {
+            func rounded(_ rect: NSRect, _ radius: CGFloat) -> NSBezierPath {
+                let grown = rect.insetBy(dx: -spread, dy: -spread)
+                return NSBezierPath(roundedRect: grown, xRadius: radius + spread, yRadius: radius + spread)
+            }
+            guard action == .pause else {
+                // The square reads heavier than the two bars at the same height, so it is drawn
+                // slightly smaller to keep the pair looking like one family.
+                let side: CGFloat = 2.7
+                return [rounded(NSRect(x: centre.x - side / 2, y: centre.y - side / 2,
+                                       width: side, height: side), 0.3)]
+            }
+            let width: CGFloat = 0.95, height: CGFloat = 3.2, gap: CGFloat = 0.8
+            return [-(gap + width) / 2, (gap + width) / 2].map { offset in
+                rounded(NSRect(x: centre.x + offset - width / 2, y: centre.y - height / 2,
+                               width: width, height: height), width / 2)
+            }
+        }
+
+        // The same clearance the plates give each other, so full ink on a 40% plate reads as its
+        // own object rather than a darker patch of the card.
         ctx.saveGState()
         ctx.setBlendMode(.destinationOut)
         ctx.setAlpha(fraction)
         NSColor.black.setFill()
-        if action == .pause {
-            for offset in [-(gap + barWidth) / 2, (gap + barWidth) / 2] {
-                NSBezierPath(roundedRect: NSRect(x: rect.midX + offset - barWidth / 2, y: rect.midY - height / 2,
-                                                 width: barWidth, height: height),
-                             xRadius: barWidth / 2, yRadius: barWidth / 2).fill()
-            }
-        } else {
-            NSBezierPath(roundedRect: NSRect(x: rect.midX - stopSide / 2, y: rect.midY - stopSide / 2,
-                                             width: stopSide, height: stopSide),
-                         xRadius: 0.55, yRadius: 0.55).fill()
-        }
+        shape(spread: 0.7).forEach { $0.fill() }
         ctx.restoreGState()
+
+        NSColor.black.withAlphaComponent(fraction).setFill()
+        shape(spread: 0).forEach { $0.fill() }
     }
 }
