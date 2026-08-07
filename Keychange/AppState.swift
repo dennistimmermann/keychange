@@ -683,17 +683,21 @@ final class AppState: ObservableObject {
     }
 
     /// Also catches input source changes the user makes by hand (or via the system UI).
+    /// `.deliverImmediately` is why this uses the selector API. The block-based
+    /// `addObserver(forName:object:queue:)` registers with the default coalescing behaviour, and
+    /// AppKit suspends distributed notifications while an app is in the background — which, for a
+    /// menu bar app, is always. Switches Keychange makes itself still arrived, so the mark tracked
+    /// those and silently ignored every layout change made anywhere else.
     private func observeInputSourceChanges() {
         DistributedNotificationCenter.default().addObserver(
-            forName: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+            self,
+            selector: #selector(inputSourceDidChange),
+            name: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
             object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.inputSourceDidChange() }
-        }
+            suspensionBehavior: .deliverImmediately)
     }
 
-    private func inputSourceDidChange() {
+    @objc private func inputSourceDidChange() {
         // Fires for every source change, our own included; the conflict test below is what
         // separates them, and `externalChangeAction` decides what a conflict means.
         cachedSourceID = currentSourceID
