@@ -399,8 +399,13 @@ struct ContentView: View {
                                  Ignore: keep your choice, and leave it until you switch to another keyboard.
                                  Reset: keep your choice until the next key press, which restores the keyboard's own input source.
                                  """)
-            settingsToggle("Show menu bar item", isOn: state.binding(\.showsMenuBarItem),
-                           hint: "Turn this off and Keychange runs with nothing on screen at all. Launching it again always brings this window back, so it stays reachable either way.")
+            // Withheld until headless running is better tested — App Nap silently killed
+            // switching once already, and an app with nothing on screen has no way to report
+            // the next fault like it. Everything behind the switch stays wired up and works;
+            // `defaults write com.tmrmn.Keychange showsMenuBarItem -bool false` still reaches it.
+            // Put this row back to ship it.
+//            settingsToggle("Show menu bar item", isOn: state.binding(\.showsMenuBarItem),
+//                           hint: "Turn this off and Keychange runs with nothing on screen at all. Launching it again always brings this window back, so it stays reachable either way.")
             settingsToggle("Launch at login", isOn: state.binding(\.launchAtLogin))
             settingsToggle("Check for updates automatically",
                            isOn: state.binding(\.automaticallyChecksForUpdates))
