@@ -147,11 +147,11 @@ h1 {
 .kofi svg { flex: none; opacity: 0.75; }
 
 /* ---------- the app shot ----------
-   demo-no-loupe.gif (make-demo.py) is a fixed composition carrying its own menu
-   bar, popover and text field, on this page's own desk colour so it sits flush.
-   It holds its 560px wherever that fits, and scales down from there — unlike the
-   static capture it replaced, it is one raster of the whole scene, so shrinking it
-   is better than making the hero scroll sideways. */
+   keychange-input-source-per-keyboard.gif (make-demo.py) is a fixed composition
+   carrying its own menu bar, popover and text field, on this page's own desk colour
+   so it sits flush. It holds its 560px wherever that fits, and scales down from there
+   — unlike the static capture it replaced, it is one raster of the whole scene, so
+   shrinking it is better than making the hero scroll sideways. */
 
 .hero-shot { justify-self: end; width: 560px; }
 

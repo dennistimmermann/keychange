@@ -18,9 +18,9 @@ Everything is laid out in points (the 1x sizes the app and the site use) and ren
 at 2x. Vector shapes go through supersampled masks because ImageDraw doesn't
 antialias; text comes off FreeType, which does.
 
-    python3 make-demo.py                # every variant
-    python3 make-demo.py demo-no-loupe  # just one
-    python3 make-demo.py --check        # self-check, renders nothing
+    python3 make-demo.py         # every variant
+    python3 make-demo.py demo    # just one
+    python3 make-demo.py --check # self-check, renders nothing
 """
 
 import subprocess
@@ -43,10 +43,12 @@ FPS = 20
 # field, because most platforms (Facebook, LinkedIn, Slack, iMessage, Mastodon) show a
 # still of a link preview; only Discord and Telegram animate one. It also stands alone
 # as the image to attach to a post, where GIFs do play.
+#
+# The key is the output filename.
 VARIANTS = {
-    "demo": {"callout": True},
-    "demo-no-loupe": {"callout": False},
-    "og": {"callout": True, "card": True},
+    "demo": {"callout": True},                                       # README
+    "keychange-input-source-per-keyboard": {"callout": False},       # landing page hero
+    "og": {"callout": True, "card": True},                           # link previews, posts
 }
 
 # ---------------------------------------------------------------- palette (docs/style.css)

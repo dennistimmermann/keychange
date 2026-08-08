@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Keychange — one layout per keyboard</title>
+<title>Keychange — assign an input source layout to each of your keyboards</title>
 <meta name="description" content="A macOS menu bar app that switches the system input source per physical keyboard. Free, MIT licensed.">
+<link rel="canonical" href="https://keychange.dev/">
 <link rel="icon" href="keychange-icon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="128x128" type="image/png">
 <link rel="apple-touch-icon" href="favicon.png">
 <meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
 <meta property="og:url" content="https://keychange.dev/">
 <meta property="og:site_name" content="Keychange">
 <meta property="og:title" content="Keychange — one layout per keyboard">
@@ -19,6 +21,34 @@
 <meta property="og:image:alt" content="Keychange — one layout per keyboard. The menu bar item and its popover, listing three keyboards with their input sources.">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="style.css">
+
+<!-- The app, described for search engines. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Keychange",
+  "url": "https://keychange.dev/",
+  "description": "A macOS menu bar app that assigns an input source to each of your physical keyboards and switches the system to it as you move between them.",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "macOS 14.0 or later",
+  "processorRequirements": "Apple silicon or Intel",
+  "downloadUrl": "https://github.com/dennistimmermann/keychange/releases/latest/download/Keychange.dmg",
+  "softwareHelp": "https://github.com/dennistimmermann/keychange",
+  "license": "https://github.com/dennistimmermann/keychange/blob/main/LICENSE",
+  "screenshot": "https://keychange.dev/og.png",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Dennis Timmermann",
+    "url": "https://github.com/dennistimmermann"
+  }
+}
+</script>
 </head>
 <body>
 <div class="page">
@@ -81,7 +111,7 @@
     <!-- The loop (make-demo.py) brings its own menu bar, popover and text field, so
          it replaces the drawn bar the static shot used to sit under. -->
     <div class="hero-shot">
-      <img src="demo-no-loupe.gif" width="560" height="432"
+      <img src="keychange-input-source-per-keyboard.gif" width="560" height="432"
            alt="One text field, three keyboards: “Hello!” typed on a Keychron K2 set to U.S., “Grüße!” on the built-in keyboard set to German, and “안녕!” on MX Keys set to 2-Set Korean. The menu bar badge changes from EN to DE to KO as each keyboard is used, and the popover marks whichever one is being typed on.">
     </div>
   </header>
