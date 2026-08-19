@@ -48,6 +48,9 @@ final class AppState: ObservableObject {
     @Published var inputSources: [InputSource] = []
     @Published var hasPermission: Bool = false
     @Published var menuBarCode: String = "—"
+    /// The current source's localized name, shown beside the mark when `showsSourceName` is on.
+    /// Already shortened — see `refreshMenuBarCode`.
+    @Published var menuBarSourceName: String = ""
     /// The Keychange mark with the current source's code; nil → show menuBarCode text.
     @Published var menuBarIcon: NSImage? = nil
 
@@ -114,6 +117,11 @@ final class AppState: ObservableObject {
     /// Set when "Before key press" is selected but the tap could not be created — i.e. we
     /// don't have Accessibility access.
     @Published private(set) var tapFailed = false
+    /// Whether the status item spells the current input source out beside the mark. Off by
+    /// default: the mark alone is the narrow item, and the menu bar is not ours to fill.
+    @Published var showsSourceName: Bool {
+        didSet { defaults.set(showsSourceName, forKey: Key.showsSourceName) }
+    }
     /// Whether the status item is installed at all. Off means Keychange runs with nothing
     /// on screen; the settings window takes over as its only surface.
     @Published var showsMenuBarItem: Bool {
@@ -181,6 +189,7 @@ final class AppState: ObservableObject {
         static let autoDisabled = "autoDisabled"
         static let switchTiming = "switchTiming"
         static let showsMenuBarItem = "showsMenuBarItem"
+        static let showsSourceName = "showsSourceName"
         static let didOfferLaunchAtLogin = "didOfferLaunchAtLogin"
     }
 
@@ -250,6 +259,7 @@ final class AppState: ObservableObject {
         launchAtLogin = alreadyRegistered
         offersLaunchAtLogin = !defaults.bool(forKey: Key.didOfferLaunchAtLogin) && !alreadyRegistered
         showsMenuBarItem = defaults.object(forKey: Key.showsMenuBarItem) as? Bool ?? true
+        showsSourceName = defaults.bool(forKey: Key.showsSourceName)
 
         refreshInputSources()
         refreshMenuBarCode()
@@ -622,12 +632,21 @@ final class AppState: ObservableObject {
         // the layout, never that it has stopped reporting it.
         guard let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
             menuBarCode = "—"
+            menuBarSourceName = ""
             menuBarIcon = nil
             return
         }
         let languages = Self.property(current, kTISPropertyInputSourceLanguages) as? [String] ?? []
         let newCode = languages.first?.uppercased() ?? "—"
         if menuBarCode != newCode { menuBarCode = newCode }
+
+        // The same name the device picker shows, shortened: the menu bar drops items that do not
+        // fit, and "Pinyin — Simplified" beside the mark is a plausible way to overflow it. The
+        // guard is for the change notifications input methods fire on focus changes, which would
+        // otherwise republish an identical name several times a switch.
+        let name = Self.property(current, kTISPropertyLocalizedName) as? String ?? ""
+        let newName = name.count > 12 ? name.prefix(12).trimmingCharacters(in: .whitespaces) + "…" : name
+        if menuBarSourceName != newName { menuBarSourceName = newName }
 
         if menuBarIcon == nil {
             // Nothing on screen to move from — the first draw, or back from the text fallback.

@@ -406,6 +406,8 @@ struct ContentView: View {
             // Put this row back to ship it.
 //            settingsToggle("Show menu bar item", isOn: state.binding(\.showsMenuBarItem),
 //                           hint: "Turn this off and Keychange runs with nothing on screen at all. Launching it again always brings this window back, so it stays reachable either way.")
+            settingsToggle("Show input source name", isOn: state.binding(\.showsSourceName),
+                           hint: "Show the current input source's name next to the menu bar icon. Long names are shortened.")
             settingsToggle("Launch at login", isOn: state.binding(\.launchAtLogin))
             settingsToggle("Check for updates automatically",
                            isOn: state.binding(\.automaticallyChecksForUpdates))

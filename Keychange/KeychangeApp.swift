@@ -14,10 +14,19 @@ struct KeychangeApp: App {
         MenuBarExtra(isInserted: state.binding(\.showsMenuBarItem)) {
             ContentView().environmentObject(state)
         } label: {
-            if let icon = state.menuBarIcon {
-                Image(nsImage: icon)
-            } else {
-                Text(state.menuBarCode)
+            // An HStack, not a formatted string: the mark is an image, and the name is optional.
+            HStack(spacing: 0) {
+                if let icon = state.menuBarIcon {
+                    Image(nsImage: icon)
+                } else {
+                    Text(state.menuBarCode)
+                }
+                if state.showsSourceName, !state.menuBarSourceName.isEmpty {
+                    // A leading space, because the status item composes its own content: an
+                    // HStack's spacing lands after the text and a padding is dropped outright.
+                    // The one gap that survives is one the text itself carries.
+                    Text(" " + state.menuBarSourceName)
+                }
             }
         }
         .menuBarExtraStyle(.window)
