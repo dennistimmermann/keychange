@@ -4,3 +4,10 @@ build/
 __pycache__/
 design-handoff/
 CLAUDE.md
+
+# The promo keeps only its finished video in git; the plan, stills, copy and the work
+# folder that renders it stay local (work/scene.html loads Google Fonts, and Pages
+# would publish it).
+docs/promo/*
+!docs/promo/promo.mp4
+.nodeterm/

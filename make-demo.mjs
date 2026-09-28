@@ -1,14 +1,15 @@
-// Builds docs/assets/demo.gif, the README's loop, from the landing page's own hero.
+// Builds docs/assets/demo.webp and demo.gif, the README's loop, from the landing page's
+// own hero. The README shows the WebP; the GIF stays for anywhere that can't.
 //
 //     node make-demo.mjs            on the page's paper, blobs and all
-//     node make-demo.mjs --clear    on nothing: no paper, no blobs, a transparent GIF
+//     node make-demo.mjs --clear    on nothing: no paper, no blobs, transparent
 //
 // A capture, not a recording: hero.js holds any moment with ?t=<seconds>, so each frame
 // is the page loaded at that moment. A held page never plays, so the blobs stay still
 // too, and the last frame joins the first the way story.js's loop does.
 
 import { createServer } from 'node:http';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, readdir, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, extname } from 'node:path';
 import { execSync, execFileSync } from 'node:child_process';
@@ -117,5 +118,23 @@ execFileSync('ffmpeg', [
 // ffmpeg keeps unchanged pixels between frames by making them transparent, which a clear
 // GIF can't spare, so it writes every frame whole; gifsicle finds the changed parts again.
 if (CLEAR) execFileSync('gifsicle', ['-O3', '--batch', join(DOCS, 'assets', 'demo.gif')], { stdio: 'inherit' });
+
+// The WebP keeps what the GIF can't: real alpha, so the soft edges stay soft on a light
+// README and a dark one alike. The same frames, halved the same way, kept as RGBA and
+// handed over whole; img2webp finds what changed itself. It always stores alpha
+// losslessly, and at all 256 levels that alone made the file nearly as big as the GIF;
+// 16 levels still read as soft edges (GIF has two) and halve it.
+const halved = join(dir, 'halved');
+await mkdir(halved);
+execFileSync('ffmpeg', [
+  '-loglevel', 'error', '-y', '-framerate', String(FPS), '-i', join(dir, '%04d.png'),
+  '-vf', `${scale},lutrgb=a='floor(val/16)*16+15*gte(val,255)'`, '-pix_fmt', 'rgba', join(halved, '%04d.png'),
+], { stdio: 'inherit' });
+const shots = (await readdir(halved)).sort().map(f => join(halved, f));
+execFileSync('img2webp', [
+  '-loop', '0', '-d', String(1000 / FPS), '-lossy', '-q', '75', ...shots,
+  '-o', join(DOCS, 'assets', 'demo.webp'),
+], { stdio: 'inherit' });
+
 await rm(dir, { recursive: true });
-console.log(`docs/assets/demo.gif: ${frames} frames at ${FPS} fps, ${WIDTH}x${Math.round(clip.height)}`);
+console.log(`docs/assets/demo.webp and demo.gif: ${frames} frames at ${FPS} fps, ${WIDTH}x${Math.round(clip.height)}`);

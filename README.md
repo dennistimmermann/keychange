@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/demo.gif" width="620"
+  <img src="docs/assets/demo.webp" width="620"
        alt="One text field, three keyboards: “Hello!” typed on a Keychron K2 set to U.S., then “Grüße!” on the built-in keyboard set to German, then “안녕!” on an MX Keys set to 2-Set Korean. The row of keyboards slides to whichever one is being typed on, the menu bar badge changes from EN to DE to KO the moment a key goes down on the next keyboard, and the popover marks the keyboard in use.">
 </p>
 

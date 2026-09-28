@@ -217,8 +217,10 @@ nav {
 .hero {
   position: relative;          /* the rings' layer */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 560px;   /* 0: the desk's track is wider than
-                                                    the page and must not widen it */
+  /* The copy's column is as wide as the copy, so the demo's track starts where the words
+     end. The desk spans the flexible track too, and an item across a flexible track never
+     sizes a column, so its full-width row still cannot widen the page. */
+  grid-template-columns: fit-content(560px) minmax(560px, 1fr);
   gap: 40px;
   align-items: center;
   --gutter: 40px;
@@ -300,7 +302,14 @@ h1 {
    card, the popover capture under it, and a text field. hero.js plays story.js on
    them. Only the popover image scales, and only once a phone is narrower than it. */
 
-.demo { position: relative; justify-self: end; width: 100%; max-width: 560px; }
+/* Centred between the end of the copy and the browser's edge, but never further right than
+   the hero's own edge: past a 1600px window that edge stops following the browser, and the
+   centre is pulled back by that much. The copy's end is the track's start less the gap, and
+   the browser's edge the track's end plus the gutter and whatever lies past the hero. */
+.demo {
+  position: relative; justify-self: end; width: 100%; max-width: 560px;
+  margin-right: max(0px, (100% + 40px - var(--gutter) - max(0px, (100vw - 1600px) / 2) - 560px) / 2);
+}
 
 /* Menu bar metrics measured off a real capture: 40pt tall, 14px system
    text, items 20pt apart, 18pt from the right edge. A card of its own, never a strip
@@ -702,7 +711,7 @@ footer {
    until the row is narrower than 560 and it takes the row's width. */
 @media (max-width: 1060px) {
   .hero { grid-template-columns: minmax(0, 1fr); }
-  .demo { justify-self: center; margin-top: 28px; }
+  .demo { justify-self: center; margin-top: 28px; margin-right: 0; }
 }
 
 /* Where the banner's line would wrap: drop the "take a look", keep the label and the text. */
