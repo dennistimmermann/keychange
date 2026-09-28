@@ -1,0 +1,1 @@
+German keys on a U.S. layout turn "Grüße!" into "Gr[-e!". Keychange gives each of your keyboards its own layout and switches the moment your hands do. Free, MIT, macOS 14+: keychange.dev

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/keychange-icon.svg" width="128" alt="Keychange icon">
+  <img src="docs/assets/keychange-icon.svg" width="128" alt="Keychange icon">
 </p>
 
 <h1 align="center">Keychange</h1>
@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="620"
-       alt="One text field, three keyboards: “Hello!” typed on a Keychron K2 set to U.S., “Grüße!” on the built-in keyboard set to German, and “안녕!” on MX Keys set to 2-Set Korean. The menu bar badge changes from EN to DE to KO as each keyboard is used, the popover marks the one being typed on, and a loupe magnifies the badge.">
+  <img src="docs/assets/demo.gif" width="620"
+       alt="One text field, three keyboards: “Hello!” typed on a Keychron K2 set to U.S., then “Grüße!” on the built-in keyboard set to German, then “안녕!” on an MX Keys set to 2-Set Korean. The row of keyboards slides to whichever one is being typed on, the menu bar badge changes from EN to DE to KO the moment a key goes down on the next keyboard, and the popover marks the keyboard in use.">
 </p>
 
 macOS can switch input sources per app or with a shortcut — but never per keyboard. If your

@@ -6,7 +6,7 @@
 <title>Keychange — automatic keyboard layout switching per keyboard for macOS</title>
 <meta name="description" content="A macOS menu bar app that switches the system input source per physical keyboard. Free, MIT licensed.">
 <link rel="canonical" href="https://keychange.dev/">
-<link rel="icon" href="keychange-icon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/keychange-icon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="128x128" type="image/png">
 <link rel="apple-touch-icon" href="favicon.png">
 <meta property="og:type" content="website">
@@ -15,12 +15,19 @@
 <meta property="og:site_name" content="Keychange">
 <meta property="og:title" content="Keychange — one layout per keyboard">
 <meta property="og:description" content="macOS switches input sources per app, never per keyboard. Keychange assigns one to each of your keyboards and switches as you move between them.">
-<meta property="og:image" content="https://keychange.dev/og.png">
+<meta property="og:image" content="https://keychange.dev/share/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Keychange — one layout per keyboard. The menu bar item and its popover, listing three keyboards with their input sources.">
+<meta property="og:video" content="https://keychange.dev/share/og.mp4">
+<meta property="og:video:secure_url" content="https://keychange.dev/share/og.mp4">
+<meta property="og:video:type" content="video/mp4">
+<meta property="og:video:width" content="1280">
+<meta property="og:video:height" content="720">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="preload" href="assets/fraunces.woff2" as="font" type="font/woff2" crossorigin>
 
 <!-- The app, described for search engines. -->
 <script type="application/ld+json">
@@ -36,7 +43,7 @@
   "downloadUrl": "https://github.com/dennistimmermann/keychange/releases/latest/download/Keychange.dmg",
   "softwareHelp": "https://github.com/dennistimmermann/keychange",
   "license": "https://github.com/dennistimmermann/keychange/blob/main/LICENSE",
-  "screenshot": "https://keychange.dev/og.png",
+  "screenshot": "https://keychange.dev/share/og.jpg",
   "offers": {
     "@type": "Offer",
     "price": "0",
@@ -51,35 +58,46 @@
 </script>
 </head>
 <body>
+
+<!-- The other app, above everything: the card further down went unclicked. The whole
+     strip is the link. -->
+<a class="banner" href="https://dennistimmermann.github.io/momentary/" target="_blank" rel="noopener">
+  <span class="banner-in">
+    <span class="banner-tag">Also from me</span>
+    <span class="banner-text"><b>Momentary</b> gives ⌃ ⌥ ⇧ ⌘ a second function:
+      tap for a shortcut, hold for the modifier.</span>
+    <span class="banner-go">Take a look ↗</span>
+  </span>
+</a>
+
 <div class="page">
 
   <nav>
     <a class="wordmark" href="#top">
-      <img src="keychange-icon.svg" alt="" width="26" height="26">
+      <img src="assets/keychange-icon.svg" alt="" width="26" height="26">
       <span>Keychange</span>
     </a>
     <div class="nav-links">
-      <a href="https://ko-fi.com/tmrmn">Tip</a>
-      <a href="https://github.com/dennistimmermann/keychange">GitHub</a>
-      <a class="button small" href="https://github.com/dennistimmermann/keychange/releases/latest/download/Keychange.dmg">Download</a>
+      <a href="https://ko-fi.com/tmrmn" target="_blank" rel="noopener">Tip</a>
+      <a href="https://github.com/dennistimmermann/keychange" target="_blank" rel="noopener">GitHub</a>
+      <a class="button small" href="https://github.com/dennistimmermann/keychange/releases/latest/download/Keychange.dmg">Download<i class="cursor" aria-hidden="true"></i></a>
     </div>
   </nav>
 
   <header id="top" class="hero">
     <div class="hero-copy">
-      <img class="hero-mark" src="keychange-icon.svg" alt="Keychange" width="96" height="96">
+      <img class="hero-mark" src="assets/keychange-icon.svg" alt="Keychange" width="96" height="96">
       <h1>One layout per keyboard.</h1>
-      <p>Assign a layout to each of your keyboards. Keychange sits in your menu bar and switches
+      <p>Assign a layout to each of your keyboards. Keychange waits in your menu bar and switches
          the moment your hands do.</p>
       <div class="cta">
-        <a class="button" href="https://github.com/dennistimmermann/keychange/releases/latest/download/Keychange.dmg">Download for macOS</a>
-        <p class="cta-note"><span id="version"></span>Free · MIT<br>macOS 14+ · Universal</p>
+        <a class="button" href="https://github.com/dennistimmermann/keychange/releases/latest/download/Keychange.dmg">Download for macOS<i class="cursor" aria-hidden="true"></i></a>
+        <p class="cta-note"><span id="version"></span>Free<br>macOS 14+</p>
       </div>
 
-      <!-- One line: the word that lets a disk-image visitor stop reading, then the command
-           behind a prompt so it reads as something to paste into a terminal. -->
+      <!-- One line: the command behind a prompt, so it reads as something to paste into
+           a terminal. -->
       <div class="install">
-        <span class="or">or</span>
         <code class="cmd">brew install dennistimmermann/tap/keychange</code>
         <button class="brew" type="button" aria-label="Copy the install command"
                 data-cmd="brew install dennistimmermann/tap/keychange">
@@ -93,9 +111,10 @@
             <path d="M3 8.5 6.2 11.5 13 4.5"/>
           </svg>
         </button>
+        <span class="sr" role="status"></span>
       </div>
 
-      <a class="kofi" href="https://ko-fi.com/tmrmn">
+      <a class="kofi" href="https://ko-fi.com/tmrmn" target="_blank" rel="noopener">
         <!-- A plain cup rather than Ko-fi's own mark: it inherits the page's ink,
              and the label carries the name. -->
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor"
@@ -108,12 +127,48 @@
       </a>
     </div>
 
-    <!-- The loop (make-demo.py) brings its own menu bar, popover and text field, so
-         it replaces the drawn bar the static shot used to sit under. -->
-    <div class="hero-shot">
-      <img src="keychange-input-source-per-keyboard.gif" width="560" height="432"
-           alt="One text field, three keyboards: “Hello!” typed on a Keychron K2 set to U.S., “Grüße!” on the built-in keyboard set to German, and “안녕!” on MX Keys set to 2-Set Korean. The menu bar badge changes from EN to DE to KO as each keyboard is used, and the popover marks whichever one is being typed on.">
+    <!-- The demo is live, not a recording: hero.js plays story.js on these elements and
+         builds the keyboards. Without script it rests on the card, the popover and an
+         empty field. One image to assistive tech; the Pause button stays outside it. -->
+    <div class="demo">
+      <i class="blob lilac" data-seed="2"></i>
+      <i class="blob peach" data-seed="5"></i>
+      <div class="screen" role="img"
+           aria-label="One text field, three keyboards: “Hello!” typed on a Keychron K2 set to U.S., then “Grüße!” on the built-in keyboard set to German, then “안녕!” on an MX Keys set to 2-Set Korean. The menu bar badge changes from EN to DE to KO the moment a key goes down on the next keyboard, and the popover marks whichever keyboard is being typed on.">
+        <div class="bar">
+          <canvas class="mark" width="23" height="18"></canvas>
+          <span>Fri 1 Aug&nbsp;&nbsp;10:04</span>
+        </div>
+        <div class="popover">
+          <img src="assets/panel-ink.png" width="344" height="142" alt="">
+          <i class="rail"></i>
+        </div>
+        <div class="field"><span class="typed"></span><i class="caret"></i></div>
+      </div>
+      <button class="pause" type="button" aria-label="Pause the animation" hidden>
+        <svg class="glyph" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <rect x="3.5" y="3" width="3" height="10" rx="1"/>
+          <rect x="9.5" y="3" width="3" height="10" rx="1"/>
+        </svg>
+        <svg class="play" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M4.5 3.4v9.2a.8.8 0 0 0 1.2.7l7.3-4.6a.8.8 0 0 0 0-1.4L5.7 2.7a.8.8 0 0 0-1.2.7z"/>
+        </svg>
+      </button>
     </div>
+
+    <i class="blob aqua" data-seed="4"></i>
+    <div class="desk" aria-hidden="true">
+      <div class="track">
+        <div class="keyboard"><p>Apple Internal · German</p><div class="board"></div><div class="caps" data-layout="de"></div></div>
+        <div class="keyboard"><p>Keychron K2 · U.S.</p><div class="board"></div><div class="caps" data-layout="us"></div></div>
+        <div class="keyboard"><p>MX Keys · 2-Set Korean</p><div class="board"></div><div class="caps" data-layout="ko"></div></div>
+      </div>
+    </div>
+    <svg class="rings" aria-hidden="true">
+      <line stroke-width="3" stroke-dasharray="0 7"/>
+      <circle/>
+      <circle/>
+    </svg>
   </header>
 
   <section id="why" class="cards">
@@ -208,25 +263,15 @@
     </article>
   </section>
 
-  <h2 class="section-head" id="also">Also</h2>
-  <section class="also">
-    <a class="also-card" href="https://dennistimmermann.github.io/momentary/">
-      <h3>Momentary <span class="dash">—</span> A second function for your modifier keys</h3>
-      <p>Gives ⌃ ⌥ ⇧ ⌘ modifiers a second function. Tap for your own key, hold for the
-        modifier. Any modifier, any key.</p>
-      <span class="also-go">dennistimmermann.github.io/momentary ↗</span>
-    </a>
-  </section>
-
   <footer>
-    <span>© 2026 Dennis Timmermann · MIT · Inspired by
-      <a href="https://github.com/ohueter/autokbisw">autokbisw</a> by @ohueter and @jeantil · Updates by
-      <a href="https://github.com/sparkle-project/Sparkle">Sparkle</a></span>
+    <span>© 2026 Dennis Timmermann · Inspired by
+      <a href="https://github.com/ohueter/autokbisw" target="_blank" rel="noopener">autokbisw</a> by <a href="https://github.com/ohueter" target="_blank" rel="noopener">@ohueter</a> and <a href="https://github.com/jeantil" target="_blank" rel="noopener">@jeantil</a> · Updates by
+      <a href="https://github.com/sparkle-project/Sparkle" target="_blank" rel="noopener">Sparkle</a></span>
     <span class="footer-legal">
       <a href="/impressum.html">Impressum</a>
       <a href="/privacy.html">Privacy</a>
       <a href="/terms.html">Terms</a>
-      <a href="https://ko-fi.com/tmrmn">Tip on Ko-fi</a>
+      <a href="https://ko-fi.com/tmrmn" target="_blank" rel="noopener">Tip on Ko-fi</a>
     </span>
   </footer>
 
@@ -241,13 +286,21 @@ fetch('https://api.github.com/repos/dennistimmermann/keychange/releases/latest')
   .then(r => { if (r.tag_name) document.getElementById('version').textContent = r.tag_name + ' · '; })
   .catch(() => {});
 
+// The check mark says it to the eye; the status line says it to a screen reader.
 const brew = document.querySelector('.brew');
+const said = document.querySelector('.install [role=status]');
+// Only once the clipboard has taken it: a refused write must not claim success.
 brew.addEventListener('click', () => {
-  navigator.clipboard.writeText(brew.dataset.cmd);
-  brew.classList.add('copied');
-  setTimeout(() => brew.classList.remove('copied'), 1600);
+  navigator.clipboard.writeText(brew.dataset.cmd).then(() => {
+    brew.classList.add('copied');
+    said.textContent = 'Copied';
+    setTimeout(() => { brew.classList.remove('copied'); said.textContent = ''; }, 1600);
+  }).catch(() => {});
 });
 </script>
+<script type="module" src="js/shade.js"></script>
+<script type="module" src="js/hero.js"></script>
+<script type="module" src="js/ring.js"></script>
 
 </body>
 </html>

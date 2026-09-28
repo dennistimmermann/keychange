@@ -16,7 +16,7 @@
     </clipPath>
     <filter id="kc-lift" x="-25%" y="-25%" width="150%" height="160%">
       <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#14121E" flood-opacity="0.10"></feDropShadow>
-      <feDropShadow dx="0" dy="42" stdDeviation="48" flood-color="#14121E" flood-opacity="0.16"></feDropShadow>
+      <feDropShadow dx="0" dy="20" stdDeviation="15" flood-color="#14121E" flood-opacity="0.18"></feDropShadow>
     </filter>
   </defs>
   <g data-role="keycap" filter="url(#kc-lift)">

@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <title>Keychange — dmg background source</title>
 <!--
-  Source for background.tiff, the 660×400 disk-image window background. Like
-  docs/og.html it exists so the image can be regenerated instead of redrawn:
+  Source for background.tiff, the 660×400 disk-image window background. It exists
+  so the image can be regenerated instead of redrawn:
 
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
       --screenshot=background@2x.png --window-size=660,400 \
-      --force-device-scale-factor=2 --hide-scrollbars docs/background.html
+      --force-device-scale-factor=2 --hide-scrollbars --virtual-time-budget=2000 \
+      docs/dmg/background.html
     sips --resampleWidth 660 background@2x.png --out background.png
     tiffutil -cathidpicheck background.png background@2x.png -out background.tiff
 
@@ -17,16 +18,20 @@
   (165, 210) and the Applications alias at (495, 210), both 128pt — the window
   layout (set when the dmg is built) has to match the arrow drawn here.
 
-  It borrows the site's style.css so the desk colour and type stay in step.
+  It borrows the site's style.css, so it is printed in the page's current look:
+  the cream stock and its dot screen, navy ink, Fraunces for the brand and the
+  tagline, a coral arrow, and two of the hero's pastel blobs pushed into the
+  corners, clear of the icons and their labels. Redraw it when the site's look
+  changes; it ships in every disk image. The time budget lets fraunces.woff2 load
+  before the shot, so the brand is never caught in the Georgia fallback.
 -->
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../assets/style.css">
 <style>
   html, body { margin: 0; }
   body {
     position: relative;
     width: 660px;
     height: 400px;
-    background: var(--desk);
     overflow: hidden;
   }
   /* The website's wordmark, centered. */
@@ -39,25 +44,39 @@
   }
   .brand img { display: block; width: 40px; height: 40px; border-radius: 9px; }
   .brand span {
-    font-family: var(--sans);
-    font-size: 22px;
+    font-family: var(--display);
+    font-size: 24px;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
     color: var(--ink);
   }
   .tagline {
     text-align: center;
-    font-size: 12.5px;
-    margin: 10px 0 0;
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--body);
+    margin: 8px 0 0;
   }
+  /* The hero's blobs, still: its shape as the CSS fallback, no breathing. */
+  .blob {
+    position: absolute;
+    z-index: -1;
+    border-radius: 58% 42% 55% 45% / 45% 55% 45% 55%;
+  }
+  .blob.lilac { right: -90px; top: -110px; width: 300px; height: 210px; background: var(--lilac); }
+  .blob.peach { left: -80px; bottom: -90px; width: 280px; height: 170px; background: var(--peach); }
   /* Between the two icon slots, on their centerline. */
-  .arrow { position: absolute; left: 273px; top: 192px; color: var(--body); }
+  .arrow { position: absolute; left: 273px; top: 192px; color: var(--accent); }
 </style>
 </head>
 <body>
 
+  <i class="blob lilac"></i>
+  <i class="blob peach"></i>
+
   <div class="brand">
-    <img src="keychange-icon.svg" alt="">
+    <img src="../assets/keychange-icon.svg" alt="">
     <span>Keychange</span>
   </div>
   <p class="tagline">One layout per keyboard.</p>

@@ -4,7 +4,7 @@
 #
 #   dmgbuild -s dmg-settings.py -D app=export/Keychange.app Keychange Keychange.dmg
 #
-# Geometry matches docs/background.tiff (source: docs/background.html):
+# Geometry matches docs/dmg/background.tiff (source: docs/dmg/background.html):
 # 660×400 window, 128pt icons centered at (165, 210) and (495, 210).
 
 app = defines.get("app", "export/Keychange.app")  # noqa: F821
@@ -12,7 +12,7 @@ app = defines.get("app", "export/Keychange.app")  # noqa: F821
 files = [(app, "Keychange.app")]
 symlinks = {"Applications": "/Applications"}
 
-background = "docs/background.tiff"
+background = "docs/dmg/background.tiff"
 window_rect = ((200, 140), (660, 400))
 default_view = "icon-view"
 show_status_bar = False

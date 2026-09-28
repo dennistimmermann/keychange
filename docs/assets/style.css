@@ -1,0 +1,740 @@
+/* Keychange landing page, printed in the launch video's look: cream stock, navy ink,
+   white cards, and shadows screened in dots. Monospace is the page's voice, Fraunces
+   its display type; system sans is kept for what imitates the app — the menu bar, the
+   popups, the keycaps. Light only: the look is a print. */
+
+:root {
+  --desk: #FFF5E8;            /* the stock */
+  --panel: #FFFFFF;
+  --ink: #232B4A;
+  --body: #4A5070;
+  --footer: #4A5070;
+  --hairline: rgb(35 43 74 / 0.14);
+  /* Coral is the switch: the pressed key, the mark, the rings. At 2.5:1 on the stock
+     it is for shapes only; anything that reads as text takes rust instead (4.5:1). */
+  --accent: #FF6F59;
+  --rust: #C8432B;
+  --grape: #8C6CF2;           /* the shadows' other ink */
+  --peach: #FFE2C6;           /* the blobs */
+  --lilac: #E6DEFF;
+  --aqua: #D3F3E8;
+  --display: Fraunces, Georgia, serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --nav: 72px;                /* the nav's height: the hero fills the first screen below it */
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+/* Served from this site, not Google's: the privacy notice promises no request leaves
+   for another company. The latin subset, SOFT and WONK fixed; fraunces-OFL.txt. */
+@font-face {
+  font-family: Fraunces;
+  src: url(fraunces.woff2) format("woff2");
+  font-weight: 500 700;
+  font-display: swap;
+}
+
+* { box-sizing: border-box; }
+
+/* The row of keyboards runs off both edges of the window, so the page is clipped at
+   the body rather than further in. The root takes the scrolling, which leaves the
+   body's clip on the body instead of handing it to the viewport as "hidden" — a clip
+   there is no scroll container, and nothing can be panned sideways into view. */
+html { overflow: auto; }
+
+/* The stock's own faint screens, as the video prints its paper at the page's scale:
+   grape at 45° and a warmer yellow at about 30° (2:1, the nearest angle a tile can
+   repeat), both 3.5px apart. One 40px tile holds a whole number of each. */
+body {
+  overflow-x: clip;
+  --paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpattern id='g' width='5' height='5' patternUnits='userSpaceOnUse'%3E%3Cg fill='rgb(140,108,242)' fill-opacity='.11'%3E%3Ccircle cx='1.25' cy='1.25' r='.9'/%3E%3Ccircle cx='3.75' cy='3.75' r='.9'/%3E%3C/g%3E%3C/pattern%3E%3Cpattern id='y' width='8' height='8' patternUnits='userSpaceOnUse'%3E%3Cg fill='rgb(255,194,71)' fill-opacity='.12'%3E%3Ccircle cx='.8' cy='.8' r='.7'/%3E%3Ccircle cx='4' cy='2.4' r='.7'/%3E%3Ccircle cx='7.2' cy='4' r='.7'/%3E%3Ccircle cx='2.4' cy='5.6' r='.7'/%3E%3Ccircle cx='5.6' cy='7.2' r='.7'/%3E%3C/g%3E%3C/pattern%3E%3Crect width='40' height='40' fill='url(%23g)'/%3E%3Crect width='40' height='40' fill='url(%23y)'/%3E%3C/svg%3E");
+  margin: 0;
+  background: var(--paper) 0 0 / 40px 40px, var(--desk);
+  color: var(--body);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- print ----------
+   The video's halftone drop shadow: a flat ink behind the box at z-index -1, offset
+   down and right, masked to dots. shade.js prints the mask — the box's soft shadow
+   screened at 45°, the dots shrinking to nothing with distance — and marks the box
+   .printed; without script it is an even screen cut at the box.
+
+   Behind the box only works while the shaded element makes no stacking context of its
+   own — no transform, opacity, filter or z-index on it — or the dots paint over its
+   background. Move a wrapper instead. `--rim` reaches under a thick border, `--tint`
+   and `--drop` vary the ink and the offset. The list is shade.js's SHADED too. */
+
+.cards article, .settings article, .legal article, .button,
+.bar, .popover, .field, .board { position: relative; }
+
+:where(.cards article, .settings article, .legal article, .button,
+       .bar, .popover, .field, .board)::after {
+  --dot: radial-gradient(circle, #000 1.3px, transparent 1.8px);
+  content: "";
+  position: absolute;
+  inset: var(--rim, 0px);
+  z-index: -1;
+  translate: var(--drop, 8px 9px);
+  border-radius: inherit;
+  background: var(--tint, var(--grape));
+  mask: var(--dot) 0 0 / 6px 6px, var(--dot) 3px 3px / 6px 6px;
+  pointer-events: none;
+}
+/* 12px is shade.js's BLEED: the mask reaches that far past the box on every side. */
+.printed::after {
+  inset: calc(var(--rim, 0px) - 12px);
+  mask: var(--shade) 0 0 / 100% 100% no-repeat;
+}
+
+/* For a screen reader only. */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- banner ----------
+   The other app, in a full-width strip above the nav: a deep grape, dark enough that
+   white small text reads (6.2:1), with the page's own dot screen printed over it in the
+   lighter grape. The whole strip is the link; only its "take a look" underlines. */
+
+.banner {
+  display: block;
+  background:
+    radial-gradient(circle, rgb(140 108 242 / 0.55) 0.9px, transparent 1.3px) 0 0 / 5px 5px,
+    radial-gradient(circle, rgb(140 108 242 / 0.55) 0.9px, transparent 1.3px) 2.5px 2.5px / 5px 5px,
+    #6445DB;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.banner:hover { text-decoration: none; }
+.banner:hover .banner-go { text-decoration: underline; }
+.banner:focus-visible { outline: 2px solid var(--ink); outline-offset: -4px; }
+
+.banner-in {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 11px 40px;
+}
+
+/* A label pill, printed the other way round: white, with the strip's grape as its ink. */
+.banner-tag {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: #6445DB;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.banner-text b { font-family: var(--display); font-size: 14px; font-weight: 600; }
+.banner-go { flex: none; font-weight: 600; }
+
+/* ---------- nav ---------- */
+
+nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  height: var(--nav);
+  padding: 0 40px;
+}
+
+.wordmark { display: flex; align-items: center; gap: 10px; }
+.wordmark img { border-radius: 6px; }
+.wordmark span { font-family: var(--display); font-size: 17px; font-weight: 600; color: var(--ink); }
+.wordmark:hover { text-decoration: none; }
+
+.nav-links { display: flex; align-items: center; gap: 26px; font-size: 12px; }
+
+.button {
+  --tint: var(--accent);
+  background: var(--ink);
+  color: var(--panel);
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.button:hover { background: color-mix(in srgb, var(--ink), #000 35%); text-decoration: none; }
+.button.small { --drop: 4px 5px; padding: 6px 13px; font-size: 12px; border-radius: 6px; }
+
+/* Pressed into its own shadow: the button moves, the dots stay. */
+.button:active { top: 2px; left: 2px; --drop: 6px 7px; }
+.button.small:active { --drop: 2px 3px; }
+
+/* Hovered, a download button waits to be typed into, like the demo's field: a caret after
+   the label, in the label's colour. It takes no room, so the label never shifts. Not
+   .caret, which is the field's and which hero.js finds first by that name. */
+.cursor {
+  display: inline-block;
+  width: 1.5px;
+  height: 1.15em;
+  margin: 0 -3.5px 0 2px;
+  vertical-align: -0.2em;
+  background: currentColor;
+  opacity: 0;
+}
+.button:hover .cursor, .button:focus-visible .cursor { animation: blink 1.06s steps(1) infinite; }
+@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .button:hover .cursor, .button:focus-visible .cursor { animation: none; opacity: 1; }
+}
+
+/* Ink like the popups' ring, clear of the face, where the browser's blue would clash. */
+.button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ---------- hero ---------- */
+
+/* Two rows: the copy beside the demo, then the desk across both. The desk sits on the
+   hero's bottom edge, where the keyboards dissolve into the page, so the air below the
+   hero is the cards' top padding. */
+.hero {
+  position: relative;          /* the rings' layer */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 560px;   /* 0: the desk's track is wider than
+                                                    the page and must not widen it */
+  gap: 40px;
+  align-items: center;
+  --gutter: 40px;
+  padding: 48px var(--gutter) 0;
+  /* The copy keeps to the page's 1280px column; the demo may spill out to the right, up to
+     the half of a 1600px column, while the window has the room. */
+  margin-right: calc(-1 * max(0px, (min(1600px, 100vw) - min(1280px, 100vw)) / 2));
+}
+
+.hero-mark { display: block; margin-bottom: 22px; }
+
+h1 {
+  font-family: var(--display);
+  font-size: 50px;
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  max-width: 15ch;
+  margin: 0 0 24px;
+  text-wrap: balance;
+}
+
+.hero-copy > p { max-width: 44ch; margin: 0; }
+
+.cta { display: flex; align-items: center; gap: 22px; margin-top: 26px; }
+.cta-note { font-size: 11.5px; line-height: 1.5; margin: 0; }
+
+/* The Homebrew route, on one line and unboxed: the command carries itself, and the
+   copy icon is its own target rather than the whole line. */
+.install {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;          /* one line everywhere but a narrow phone, where it breaks
+                               after "brew install" rather than scrolling the page */
+  gap: 10px;
+  width: fit-content;
+  margin-top: 30px;
+  font-size: 12px;
+}
+
+/* The prompt and the medium weight are the whole treatment: enough for a shell line
+   to read as one, with nothing drawn behind it. */
+.cmd { color: var(--ink); font-weight: 500; }
+.cmd::before { content: "$ "; opacity: 0.4; }
+
+.brew, .pause {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--body);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  opacity: 0.75;               /* 4:1 on the stock: an icon still has to be seen */
+}
+:is(.brew, .pause):hover { opacity: 1; }
+.brew .check, .brew.copied .glyph { display: none; }
+.brew.copied { opacity: 1; }
+.brew.copied .check { display: block; color: var(--rust); }
+
+/* Sits under the download button, the one place a visitor is already deciding. */
+.kofi {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--footer);
+}
+.kofi svg { flex: none; opacity: 0.75; }
+
+/* ---------- the demo ----------
+   Page elements at the app's true sizes, not a recording: the menu bar as a floating
+   card, the popover capture under it, and a text field. hero.js plays story.js on
+   them. Only the popover image scales, and only once a phone is narrower than it. */
+
+.demo { position: relative; justify-self: end; width: 100%; max-width: 560px; }
+
+/* Menu bar metrics measured off a real capture: 40pt tall, 14px system
+   text, items 20pt apart, 18pt from the right edge. A card of its own, never a strip
+   along the top of anything. */
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  width: min(390px, 100%);
+  height: 40px;
+  margin-left: auto;
+  padding: 0 18px;
+  background: var(--panel);
+  border-radius: 11px;
+  font: 500 14px var(--sans);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.mark { flex: none; width: 23px; height: 18px; }
+
+/* panel-ink.png (make-panel.py) is the popover at its 2x capture size, cropped to the
+   panel and printed in the two inks. macOS hangs it 6pt under the bar, right under
+   the status item. The rail it had baked in is drawn here instead, on whichever row
+   is live: 3x20pt at x 6, rows 32pt apart from y 42 — in percent, so it stays on its
+   row when a phone scales the image down. */
+.popover { width: 344px; max-width: 100%; margin: 6px 0 0 auto; border-radius: 12px; }
+.popover img { display: block; width: 100%; height: auto; }
+.rail {
+  position: absolute;
+  left: 1.74%;
+  top: calc(29.58% + var(--row, 0) * 22.54%);
+  width: 0.87%;
+  height: 14.08%;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.field {
+  --tint: var(--accent);
+  --rim: -2px;
+  display: flex;
+  align-items: center;
+  height: calc(1em + 30px);
+  width: calc(100% - 48px);    /* short of the menu bar and popover's right edge, not lined up with them */
+  margin-top: 56px;
+  padding: 0 0.6em;
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  /* Fraunces has no Hangul, so 안녕 falls through to the system's Korean face. The
+     fixed line height keeps that face's taller metrics from moving the line. */
+  font: 560 34px/1.2 Fraunces, Georgia, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  color: var(--ink);
+  white-space: pre;
+}
+.typed { opacity: var(--fade, 1); }
+/* The syllable the input method is still building, underlined as macOS marks it. */
+.typed .composing { text-decoration: underline 1.5px; text-underline-offset: 0.12em; }
+/* ü and ß flash as they come out right; text, so rust rather than coral. */
+.typed span { color: color-mix(in srgb, var(--rust) calc(var(--f, 0) * 100%), var(--ink)); }
+.caret {
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  background: var(--ink);
+  opacity: var(--on, 1);
+}
+
+/* WCAG 2.2.2: anything that moves for more than five seconds can be stopped. Hidden
+   until the loop actually runs, so it never offers to pause a still. It sits above the
+   menu bar's right end, out of the flow, so nothing moves when it appears. */
+.pause { position: absolute; top: -34px; right: 0; }
+.pause[hidden] { visibility: hidden; }
+.pause .play, .pause.paused .glyph { display: none; }
+.pause.paused .play { display: block; }
+
+/* Soft pastel shapes behind the subjects, breathing slowly — only while the loop plays. */
+.blob {
+  position: absolute;
+  z-index: -2;                 /* under the shadows' -1 */
+  border-radius: 58% 42% 55% 45% / 45% 55% 45% 55%;
+  animation: breathe 13s ease-in-out infinite alternate;
+}
+.hero:not(.playing) .blob { animation-play-state: paused; }
+/* Inside the page's 1280px at desktop widths: the hero clips them, and a cut edge in
+   the middle of a wide screen would show. */
+.blob.lilac { right: -30px; top: -70px; width: 520px; height: 360px; background: var(--lilac); }
+/* Over the lilac where they meet, still under everything else: the next shape laid on. */
+.blob.peach { left: -70px; bottom: -56px; width: 400px; height: 230px; background: var(--peach); animation-duration: 16s; }
+.blob.aqua { left: 0; bottom: 40px; width: 270px; height: 190px; background: var(--aqua); animation-duration: 11s; }
+@keyframes breathe { to { transform: rotate(7deg) scale(1.06); } }
+
+/* ---------- the desk ----------
+   Three keyboards in a row, as wide as it takes. The number, top and home rows print
+   solid; below them the desk dissolves into a halftone screen whose dots shrink to
+   nothing, so the boards run out into the paper instead of stopping at a rule. The desk spans
+   the window, not the page: the boards run off both edges, and the row slides as one
+   to centre whichever board is being typed on (hero.js sets the track's translate).
+   Keys are laid out in units of --u, one key's pitch. The idle boards sit under a veil
+   of the stock, their shadows fading with them. */
+
+.desk {
+  --u: clamp(20px, 2.8vw, 30px);
+  --board: calc(15.84 * var(--u) + 4px);        /* rule included */
+  --gap: calc(1.2 * var(--u));
+  grid-column: 1 / -1;
+  width: 100vw;
+  --sink: calc(1.4 * var(--u));                 /* how far the idle boards sit lower */
+  --rest: calc(0.35 * var(--u));                /* how far short of level the live one stops */
+  --lift: calc(0.3 * var(--u));                 /* the live board's extra drop */
+  --dissolve: calc(1.4 * var(--u));
+  height: calc(26px + 3.35 * var(--u) + var(--dissolve));
+  /* The window's full width from wherever the hero starts: the page is centred, the hero is
+     not, so the desk steps back by the page's margin and the hero's gutter. */
+  margin: 12px 0 0 calc(-1 * ((100vw - min(1280px, 100vw)) / 2 + var(--gutter)));
+  overflow: clip;
+  /* Solid to the foot of the home row, where every pressed key lives, then a 45° screen
+     that starts closed up and thins to nothing before the boards' own bottom edge. The
+     tile is 6x48 and scales with the keys, so the dots stay round at every size. */
+  mask: linear-gradient(#000 0 0) top / 100% calc(100% - var(--dissolve)) no-repeat,
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='48'%3E%3Ccircle cx='0' cy='0' r='3.10'/%3E%3Ccircle cx='6' cy='0' r='3.10'/%3E%3Ccircle cx='3' cy='3' r='2.91'/%3E%3Ccircle cx='0' cy='6' r='2.71'/%3E%3Ccircle cx='6' cy='6' r='2.71'/%3E%3Ccircle cx='3' cy='9' r='2.52'/%3E%3Ccircle cx='0' cy='12' r='2.33'/%3E%3Ccircle cx='6' cy='12' r='2.33'/%3E%3Ccircle cx='3' cy='15' r='2.13'/%3E%3Ccircle cx='0' cy='18' r='1.94'/%3E%3Ccircle cx='6' cy='18' r='1.94'/%3E%3Ccircle cx='3' cy='21' r='1.74'/%3E%3Ccircle cx='0' cy='24' r='1.55'/%3E%3Ccircle cx='6' cy='24' r='1.55'/%3E%3Ccircle cx='3' cy='27' r='1.36'/%3E%3Ccircle cx='0' cy='30' r='1.16'/%3E%3Ccircle cx='6' cy='30' r='1.16'/%3E%3Ccircle cx='3' cy='33' r='0.97'/%3E%3Ccircle cx='0' cy='36' r='0.78'/%3E%3Ccircle cx='6' cy='36' r='0.78'/%3E%3Ccircle cx='3' cy='39' r='0.58'/%3E%3Ccircle cx='0' cy='42' r='0.39'/%3E%3Ccircle cx='6' cy='42' r='0.39'/%3E%3Ccircle cx='3' cy='45' r='0.19'/%3E%3C/svg%3E") bottom / calc(var(--dissolve) / 8) var(--dissolve) repeat-x;
+}
+
+/* Until hero.js runs, the still: the MX Keys, third on the row, where hero.js puts it on a
+   window up to 900px wide, centred; wider, hero.js eases it out to the column's edge. */
+.track {
+  position: relative;
+  display: flex;
+  gap: var(--gap);
+  width: max-content;
+  translate: calc(50vw - 2.5 * var(--board) - 2 * var(--gap));
+}
+.keyboard:not(:last-child) > .board { --idle: 1; }
+
+/* The idle boards sit low, only their top rows in view; the live one rises to show the
+   row being typed on, and stands a little off the page, its shadow dropping further.
+   hero.js moves each keyboard with its veil. Moved on the wrapper: a translate on the
+   board itself would lift its dots over its face. */
+.keyboard { translate: 0 var(--rest); }
+.keyboard:not(:last-child) { translate: 0 var(--sink); }
+
+.keyboard { position: relative; }
+
+.keyboard p {
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  line-height: 16px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.board {
+  --rim: -2px;
+  width: var(--board);
+  height: calc(4.84 * var(--u) + 4px);
+  background: var(--panel);
+  /* No rule, only the white: the 2px stays so the caps keep their place inside it. */
+  border: 2px solid var(--panel);
+  border-radius: calc(0.54 * var(--u));
+}
+.board {
+  --drop: calc(8px + var(--lift) * (1 - var(--idle, 0))) calc(9px + var(--lift) * (1 - var(--idle, 0)));
+}
+.board::after { opacity: calc(1 - 0.6 * var(--idle, 0)); }
+.board::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 1;                  /* over the caps */
+  border-radius: inherit;
+  background: var(--desk);
+  opacity: calc(0.6 * var(--idle, 0));
+}
+
+/* The caps lie over the board rather than in it: the board carries the veil's --idle,
+   and a custom property set on the keys' parent would restyle every key on every
+   frame of a hand move. */
+.caps { position: absolute; top: 26px; left: 2px; }   /* under the label, inside the rule */
+
+/* A cap in cream with an ink legend; pressed, it fills ink (coral if it switches),
+   the legend turns white and it drops a little. */
+.caps span {
+  --hit: var(--ink);
+  position: absolute;
+  left: calc((0.42 + var(--x) + 0.07) * var(--u));
+  top: calc((0.42 + var(--y) + 0.07) * var(--u));
+  width: calc((var(--w) - 0.14) * var(--u));
+  height: calc(0.86 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: calc(0.14 * var(--u));
+  background: color-mix(in srgb, var(--hit) calc(var(--down, 0) * 100%), var(--desk));
+  color: color-mix(in srgb, #fff calc(var(--down, 0) * 100%), var(--ink));
+  translate: 0 calc(var(--down, 0) * 0.05 * var(--u));
+  font: 500 calc(0.34 * var(--u)) var(--sans);
+}
+.caps span.hot { --hit: var(--accent); }
+.caps span.sym { font-size: calc(0.28 * var(--u)); }
+/* 2-Set Korean's jamo beside the Latin letter, the way the MX Keys prints both. */
+.caps i { margin-left: 0.3em; font-style: normal; font-size: 0.92em; }
+
+/* The switch, drawn over everything in the hero: a dotted ring leaves the key and the
+   mark together, joined by a dotted line. Its own layer, clipped to the hero, so it
+   reaches up to the menu bar and is cut at the desk's bottom rule. */
+.rings {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  overflow: clip;
+  visibility: hidden;          /* until a switch: hero.js shows it */
+  pointer-events: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+}
+/* The same ring, set off around the pointer by a download (ring.js): over the whole
+   window, for as long as it takes to fade. */
+.rings.ping { position: fixed; z-index: 10; visibility: visible; }
+
+/* ---------- section head ----------
+   Set like the cards' 01/02/03 eyebrows: a marker in the page's own voice, not a
+   second headline competing with the hero. Only the settings carry one — the cards
+   speak for themselves. */
+
+.section-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--body);
+  margin: 0 0 14px;
+  padding: 0 40px;
+}
+/* The settings are their own group, so they get more air above than the cards
+   keep between themselves. */
+.cards + .section-head { margin-top: 54px; }
+
+/* ---------- feature cards ---------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  padding: 100px 40px 72px;
+}
+
+.cards article {
+  --tint: var(--accent);       /* the why, in the coral of the download buttons */
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 20px;
+}
+.eyebrow { font-size: 10.5px; letter-spacing: 0.1em; color: var(--body); }
+.cards h3 {
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 9px 0 14px;
+}
+.cards p { font-size: 12px; line-height: 1.6; margin: 0; }
+em { font-style: normal; color: var(--ink); }
+
+/* ---------- settings ----------
+   Two panels on the cards' surface, each opening with the setting as the app shows it:
+   the label on the left, a popup button on the right. */
+
+.settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  padding: 0 40px 72px;
+}
+
+.settings article {
+  --tint: var(--accent);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 0.5px solid var(--hairline);
+  font-family: var(--sans);
+  font-size: 13px;
+}
+.setting-label { color: var(--ink); }
+.setting .popup { flex: none; }
+
+/* AppKit's pop-up button: 6px radius on a filled face, the label left, the chevron pair
+   right — inked like the Download button. The face is a real <select>, so it opens
+   with the app's own options in the browser's own menu — cheaper than drawing one, and
+   it works on touch. The chevron is a background image because appearance:none takes
+   the native one away with everything else. */
+.popup {
+  appearance: none;
+  font: inherit;
+  border: 0;
+  background: var(--ink)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='14' viewBox='0 0 9 14' fill='%23FFFFFF'%3E%3Cpath d='M4.5 1 8 5H1z'/%3E%3Cpath d='M4.5 13 1 9h7z'/%3E%3C/svg%3E")
+    no-repeat right 9px center;
+  border-radius: 6px;
+  padding: 4px 27px 4px 9px;
+  color: var(--panel);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.popup:hover { background-color: color-mix(in srgb, var(--ink), #000 35%); }
+/* Ink on the card, clear of the face: 13:1 against the white it sits on. */
+.popup:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* Where the browser draws the open menu from these (Windows, Linux, Firefox), a menu. */
+.popup option { background: var(--panel); color: var(--ink); }
+
+.settings h3 {
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 14px;
+}
+.settings p { font-size: 12px; line-height: 1.6; margin: 0; }
+
+.modes { font-size: 12px; line-height: 1.6; margin: 9px 0 0; padding-left: 16px; }
+.modes li + li { margin-top: 8px; }   /* each option its own paragraph, not one run of lines */
+
+/* ---------- footer ---------- */
+
+footer {
+  margin-top: auto;          /* keep the footer at the bottom on short pages */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  justify-content: space-between;
+  padding: 18px 40px;
+  font-size: 11px;
+  color: var(--footer);
+}
+
+/* § 5 DDG wants the Impressum reachable from anywhere on the site, and the GDPR wants
+   the same of the privacy notice, so these sit in the footer of every page. */
+.footer-legal { display: flex; flex-wrap: wrap; gap: 18px; }
+
+/* ---------- legal pages ----------
+   Impressum, privacy, terms. Same surface as the feature cards; the hero's h1 is far
+   too large for prose, so the type resets here. */
+
+.legal { padding: 52px 40px 60px; }
+
+/* The card spans the page like the others; its prose keeps a reading measure. */
+.legal article {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 38px 42px;
+}
+
+.legal article > * { max-width: 80ch; }
+
+.legal h1 {
+  font-size: 29px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  max-width: none;
+  margin: 0 0 4px;
+}
+
+.legal .sub { font-size: 11.5px; margin: 0 0 28px; }
+
+.legal h2 {
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 28px 0 12px;
+}
+
+.legal p, .legal li { font-size: 13px; line-height: 1.7; margin: 0 0 11px; }
+.legal ul { margin: 0 0 11px; padding-left: 19px; }
+.legal address { font-style: normal; font-size: 13px; line-height: 1.7; }
+.legal a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- responsive ---------- */
+
+/* The demo wants 560px, so the hero goes single column while the copy column still
+   has the ~380px the two-column layout was built around. In its own row it centres,
+   until the row is narrower than 560 and it takes the row's width. */
+@media (max-width: 1060px) {
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .demo { justify-self: center; margin-top: 28px; }
+}
+
+/* Where the banner's line would wrap: drop the "take a look", keep the label and the text. */
+@media (max-width: 955px) {
+  .banner-go { display: none; }
+}
+/* On a phone the sentence needs the room more than the label does. */
+@media (max-width: 499px) {
+  .banner-tag { display: none; }
+}
+
+@media (max-width: 900px) {
+  :root { --nav: 64px; }
+  .banner-in { gap: 12px; padding: 10px 24px; }
+  nav { padding: 0 24px; }
+  .nav-links a:not(.button) { display: none; }
+
+  .hero { --gutter: 24px; }
+  .hero-mark { width: 72px; height: 72px; }
+  h1 { font-size: 36px; }
+  .field { font-size: clamp(26px, 7.5vw, 34px); }
+  .blob.aqua { width: 180px; height: 130px; }
+
+  .cards { grid-template-columns: 1fr; padding: 78px 24px 48px; }
+  .settings { grid-template-columns: 1fr; padding: 0 24px 48px; }
+  .section-head { padding: 0 24px; }
+  footer { padding: 16px 24px; }
+}
+
+/* Without motion the keyboards have nothing to show: they are there to be typed on and
+   slid between. The still keeps the menu bar, the popover and the finished text. */
+@media (prefers-reduced-motion: reduce) {
+  .blob { animation: none; }
+  .desk, .rings, .blob.aqua { display: none; }   /* aqua lies under the keyboards */
+}
